@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Orientation {
+  N
+  NE
+  E
+  SE
+  S
+  SW
+  W
+  NW
+}
+
+enum FacadeSide {
+  front
+  back
+  left
+  right
+}
+
+enum OpeningKind {
+  window
+  door
+}
+
+enum MaterialCategory {
+  Estructura
+  Mamposteria @map("Mampostería")
+  Acabados
+  Cubierta
+  Carpinteria @map("Carpintería")
+}
+
+model Project {
+  id        String    @id @default(cuid())
+  name      String    @db.VarChar(120)
+  city      String    @db.VarChar(80)
+  region    String    @db.VarChar(80)
+  style     String    @db.VarChar(80)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  terrain   Terrain?
+  building  Building?
+
+  @@map("projects")
+}
+
+model Terrain {
+  id           String      @id @default(cuid())
+  projectId    String      @unique @map("project_id")
+  width        Float
+  length       Float
+  slopePercent Float       @map("slope_percent")
+  elevation    Float
+  orientation  Orientation
+  latitude     Float
+  longitude    Float
+  soilType     String      @map("soil_type") @db.VarChar(120)
+  maxCos       Float       @map("max_cos")
+  maxCus       Float       @map("max_cus")
+  maxFloors    Int         @map("max_floors")
+  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("terrains")
+}
+
+model Building {
+  id           String  @id @default(cuid())
+  projectId    String  @unique @map("project_id")
+  setbackX     Float   @map("setback_x")
+  setbackY     Float   @map("setback_y")
+  roofKind     String  @default("gable") @map("roof_kind") @db.VarChar(20)
+  roofPitchDeg Float   @map("roof_pitch_deg")
+  roofOverhang Float   @map("roof_overhang")
+  project      Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  floors       Floor[]
+
+  @@map("buildings")
+}
+
+model Floor {
+  id              String    @id @default(cuid())
+  buildingId      String    @map("building_id")
+  key             String    @db.VarChar(40)
+  name            String    @db.VarChar(80)
+  position        Int
+  level           Float
+  height          Float
+  footprintX      Float     @map("footprint_x")
+  footprintY      Float     @map("footprint_y")
+  footprintWidth  Float     @map("footprint_width")
+  footprintDepth  Float     @map("footprint_depth")
+  building        Building  @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  rooms           Room[]
+  openings        Opening[]
+
+  @@unique([buildingId, key])
+  @@index([buildingId, position])
+  @@map("floors")
+}
+
+model Room {
+  id       String @id @default(cuid())
+  floorId  String @map("floor_id")
+  key      String @db.VarChar(40)
+  name     String @db.VarChar(80)
+  position Int
+  x        Float
+  y        Float
+  width    Float
+  depth    Float
+  floor    Floor  @relation(fields: [floorId], references: [id], onDelete: Cascade)
+
+  @@unique([floorId, key])
+  @@map("rooms")
+}
+
+model Opening {
+  id       String      @id @default(cuid())
+  floorId  String      @map("floor_id")
+  side     FacadeSide
+  position Int
+  kind     OpeningKind
+  offset   Float
+  width    Float
+  height   Float
+  sill     Float
+  floor    Floor       @relation(fields: [floorId], references: [id], onDelete: Cascade)
+
+  @@index([floorId, side, position])
+  @@map("openings")
+}
+
+/// Global catalog; quantities are derived per project from ratePerM2 × built area.
+model Material {
+  id        String           @id @default(cuid())
+  key       String           @unique @db.VarChar(40)
+  name      String           @db.VarChar(120)
+  category  MaterialCategory
+  unit      String           @db.VarChar(12)
+  ratePerM2 Float            @map("rate_per_m2")
+  unitPrice Float            @map("unit_price")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  @@map("materials")
+}
