@@ -1,0 +1,33 @@
+:root {
+  --bg: #07111a;
+  --panel: #0f1d2a;
+  --panel-2: #122536;
+  --panel-3: #16304a;
+  --line: #1c3246;
+  --line-strong: #27445e;
+  --accent: #1597e5;
+  --accent-2: #20c7f5;
+  --accent-soft: rgba(21, 151, 229, 0.14);
+  --text: #eaf2f8;
+  --text-2: #a9bccb;
+  --text-3: #6f8799;
+  --ok: #3fb68b;
+  --warn: #e0a84a;
+  --bad: #e5645a;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --gap: 14px;
+  --sidebar-w: 240px;
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 8px 24px rgba(0, 0, 0, 0.25);
+
+  /* Drawing tokens (plans / elevations) */
+  --draw-wall: #c9d6e0;
+  --draw-room: #0c1822;
+  --draw-line: #7f97a9;
+  --draw-axis: #2e4b63;
+
+  color-scheme: dark;
+}
