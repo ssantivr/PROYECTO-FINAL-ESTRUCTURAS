@@ -1,0 +1,5 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "files.eol": "\n",
+  "search.exclude": { "**/dist": true, "**/node_modules": true, ".playwright-cli": true }
+}
