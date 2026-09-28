@@ -59,6 +59,51 @@ function stairs(room: Room, floor: Floor): SVGGElement {
   return g;
 }
 
+type Inner = ReturnType<typeof roomInner>;
+
+const box = (x: number, y: number, w: number, d: number, rx = 0.05) => s('rect', { class: 'furniture', x, y, width: w, height: d, rx });
+
+function furniture(room: Room, inner: Inner): SVGGElement | null {
+  const g = s('g', { class: 'furniture-group', 'aria-hidden': 'true' });
+  const { x, y, w, d } = inner;
+  const name = room.name.toLowerCase();
+  const fits = (fw: number, fd: number) => fw < w - 0.3 && fd < d - 0.3;
+
+  if (/hab/.test(name)) {
+    const bw = name.includes('principal') ? 1.6 : 1.0;
+    if (!fits(bw + 0.8, 2.1)) return null;
+    const bx = x + (w - bw) / 2;
+    g.append(box(bx, y + 0.15, bw, 2), box(bx + 0.1, y + 0.25, bw - 0.2, 0.4), box(bx - 0.5, y + 0.15, 0.4, 0.4), box(x + w - 0.75, y + d - 0.65, 0.6, 0.5));
+  } else if (/sala|estar/.test(name)) {
+    if (!fits(2.2, 2.2)) return null;
+    g.append(box(x + 0.25, y + d - 1.15, 2.1, 0.85), box(x + 0.6, y + d - 2.1, 1.2, 0.6), box(x + w - 0.9, y + d - 1.8, 0.75, 0.75));
+  } else if (/comedor/.test(name)) {
+    if (!fits(1.8, 1.8)) return null;
+    const tx = x + w / 2 - 0.8;
+    const ty = y + d / 2 - 0.45;
+    g.append(box(tx, ty, 1.6, 0.9));
+    for (const cx of [tx + 0.2, tx + 0.95]) g.append(box(cx, ty - 0.5, 0.45, 0.4), box(cx, ty + 1.0, 0.45, 0.4));
+  } else if (/cocina|cocineta/.test(name)) {
+    if (!fits(1.2, 0.8)) return null;
+    g.append(box(x + 0.05, y + 0.05, w - 0.1, 0.6, 0), s('circle', { class: 'furniture', cx: x + w * 0.3, cy: y + 0.35, r: 0.15 }), s('circle', { class: 'furniture', cx: x + w * 0.3 + 0.4, cy: y + 0.35, r: 0.15 }), box(x + w * 0.65, y + 0.12, 0.6, 0.45));
+  } else if (/baño/.test(name)) {
+    if (!fits(0.9, 1.1)) return null;
+    g.append(s('ellipse', { class: 'furniture', cx: x + 0.45, cy: y + d - 0.5, rx: 0.22, ry: 0.3 }), box(x + w - 0.7, y + 0.1, 0.55, 0.45), box(x + 0.1, y + 0.1, Math.min(0.9, w - 0.9), 0.9));
+  } else if (/garaje|parqueadero/.test(name)) {
+    if (!fits(2.0, 4.5)) return null;
+    g.append(box(x + (w - 1.8) / 2, y + (d - 4.3) / 2, 1.8, 4.3, 0.35));
+  } else if (/lavander/.test(name)) {
+    if (!fits(0.7, 0.7)) return null;
+    g.append(box(x + 0.1, y + 0.1, 0.6, 0.6), box(x + 0.8, y + 0.1, Math.min(0.6, w - 0.9), 0.6));
+  } else if (/estudio|oficina/.test(name)) {
+    if (!fits(1.4, 1.2)) return null;
+    g.append(box(x + 0.15, y + 0.15, 1.4, 0.65), box(x + 0.6, y + 0.9, 0.5, 0.5));
+  } else {
+    return null;
+  }
+  return g;
+}
+
 function dimension(x1: number, y1: number, x2: number, y2: number, label: string, vertical = false): SVGGElement {
   const tick = 0.18;
   const g = s('g', {});
@@ -80,10 +125,9 @@ function axisBubble(x: number, y: number, label: string): SVGGElement {
     s('text', { class: 'axis-text', x, y: y + 0.12, 'text-anchor': 'middle' }, label));
 }
 
-/** Draws one floor plan in meters, including structural axes and dimension chains. */
 export function drawFloorPlan(floor: Floor, offsetX = 0, offsetY = 0): SVGGElement {
   const { width, depth } = floor.footprint;
-  const root = s('g', { class: 'floor-plan', transform: `translate(${offsetX} ${offsetY})` });
+  const root = s('g', { class: 'floor-plan', 'data-floor': floor.id, transform: `translate(${offsetX} ${offsetY})` });
 
   const xs = unique(floor.rooms.flatMap((r) => [r.x, r.x + r.width]));
   const ys = unique(floor.rooms.flatMap((r) => [r.y, r.y + r.depth]));
@@ -105,9 +149,11 @@ export function drawFloorPlan(floor: Floor, offsetX = 0, offsetY = 0): SVGGEleme
       const cx = inner.x + inner.w / 2;
       const cy = inner.y + inner.d / 2;
       rooms.append(
-        s('text', { class: inner.w < 2.6 ? 'room-label compact' : 'room-label', x: cx, y: cy, 'text-anchor': 'middle' }, room.name),
+        s('text', { class: inner.w < 1.7 ? 'room-label tiny' : inner.w < 2.6 ? 'room-label compact' : 'room-label', x: cx, y: cy, 'text-anchor': 'middle' }, room.name),
         s('text', { class: 'room-area', x: cx, y: cy + 0.45, 'text-anchor': 'middle' }, `${formatNumber(room.width * room.depth, 1)} m²`),
       );
+      const items = furniture(room, inner);
+      if (items) rooms.insertBefore(items, rooms.lastChild?.previousSibling ?? null);
     }
   }
 
@@ -141,7 +187,6 @@ function defs(): SVGDefsElement {
       s('path', { d: 'M0 0 L10 5 L0 10 z', class: 'arrow-head' })));
 }
 
-/** One or more floors laid out side by side in a single SVG sheet. */
 export function drawPlanSheet(floors: readonly Floor[]): SVGSVGElement {
   let cursor = MARGIN;
   let maxDepth = 0;

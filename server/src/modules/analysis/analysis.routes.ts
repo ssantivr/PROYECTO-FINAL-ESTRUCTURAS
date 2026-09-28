@@ -4,19 +4,19 @@ import { constructionSchedule, estimateMaterials, totalCost } from '../../../../
 import { longitudinalProfile, monthlyInsolation, slopeDistribution } from '../../../../shared/domain/terrainAnalysis';
 import { idParamSchema } from '../projects/projects.schemas';
 import { projectsService } from '../projects/projects.service';
+import { currentUser } from '../auth/auth.middleware';
 
-/** Derived, read-only computations over a stored project. Mounted under /api/projects/:id. */
 export const analysisRouter = Router({ mergeParams: true });
 
 analysisRouter.get('/metrics', async (req, res) => {
   const { id } = idParamSchema.parse(req.params);
-  const project = await projectsService.get(id);
+  const project = await projectsService.get(currentUser(req).id, id);
   res.json(computeMetrics(project));
 });
 
 analysisRouter.get('/terrain-analysis', async (req, res) => {
   const { id } = idParamSchema.parse(req.params);
-  const { terrain } = await projectsService.get(id);
+  const { terrain } = await projectsService.get(currentUser(req).id, id);
   res.json({
     profile: longitudinalProfile(terrain),
     slopeDistribution: slopeDistribution(terrain),
@@ -26,8 +26,9 @@ analysisRouter.get('/terrain-analysis', async (req, res) => {
 
 analysisRouter.get('/estimate', async (req, res) => {
   const { id } = idParamSchema.parse(req.params);
-  const project = await projectsService.get(id);
+  const project = await projectsService.get(currentUser(req).id, id);
   const materials = estimateMaterials(project).map(({ material, quantity, cost }) => ({
+    slot: material.slot,
     materialId: material.id,
     name: material.name,
     category: material.category,

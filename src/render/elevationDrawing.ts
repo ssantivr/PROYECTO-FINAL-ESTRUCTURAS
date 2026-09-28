@@ -1,14 +1,22 @@
 import { formatNumber, s } from '../core/dom';
-import type { Opening, Project } from '../types/project';
+import type { FacadeSide, Floor, Opening, Project } from '../types/project';
 import { roofRise } from '../services/metrics';
 import { elevationAt } from '../services/terrainAnalysis';
 
-export type ElevationKind = 'front' | 'side' | 'section';
+export type ElevationKind = FacadeSide | 'section';
+
+export const ELEVATION_TITLE: Record<ElevationKind, string> = {
+  front: 'Fachada principal',
+  back: 'Fachada posterior',
+  left: 'Fachada lateral izquierda',
+  right: 'Fachada lateral derecha',
+  section: 'Corte esquemático A-A',
+};
 
 const PAD = 2.5;
 const SLAB = 0.2;
+const WALL = 0.25;
 
-/** Converts building coordinates (m, y up) to SVG coordinates (y down). */
 const flip = (top: number) => (y: number) => top - y;
 
 function levelMark(x: number, y: number, label: string): SVGGElement {
@@ -28,16 +36,26 @@ function openingRects(list: readonly Opening[], baseY: number, fy: (y: number) =
   });
 }
 
+function facadeFrame(side: FacadeSide, floor: Floor, ground: Floor) {
+  const { x, y, width, depth } = floor.footprint;
+  switch (side) {
+    case 'front': return { start: x, span: width, at: (o: Opening) => x + o.offset };
+    case 'back': return { start: ground.footprint.width - x - width, span: width, at: (o: Opening) => ground.footprint.width - x - width + o.offset };
+    case 'left': return { start: y, span: depth, at: (o: Opening) => y + depth - o.offset - o.width };
+    case 'right': return { start: y, span: depth, at: (o: Opening) => y + o.offset };
+  }
+}
+
 export function drawElevation(project: Project, kind: ElevationKind): SVGSVGElement {
   const { building, terrain } = project;
-  const [ground, upper] = building.floors;
+  const ground = building.floors[0];
   const top = building.floors.at(-1);
   if (!ground || !top) return s('svg', {});
   const { overhang } = building.roof;
   const eave = top.level + top.height;
   const ridge = eave + roofRise(project);
-  const horizontal = kind === 'front';
-  const span = horizontal ? ground.footprint.width : ground.footprint.depth;
+  const alongWidth = kind === 'front' || kind === 'back';
+  const span = alongWidth ? ground.footprint.width : ground.footprint.depth;
   const cx = building.setbackX + ground.footprint.width / 2;
   const cz = building.setbackY + ground.footprint.depth / 2;
   const base = elevationAt(terrain, cx, cz);
@@ -46,62 +64,62 @@ export function drawElevation(project: Project, kind: ElevationKind): SVGSVGElem
   const width = span + PAD * 2 + 2;
   const height = skyTop + 2.2;
 
-  const svg = s('svg', { class: 'elev-svg', viewBox: `${-PAD} 0 ${width} ${height}`, role: 'img', 'aria-label': kind === 'front' ? 'Fachada principal' : kind === 'side' ? 'Fachada lateral' : 'Corte A-A' });
+  const svg = s('svg', { class: 'elev-svg', viewBox: `${-PAD} 0 ${width} ${height}`, role: 'img', 'aria-label': ELEVATION_TITLE[kind] });
   const g = s('g', {});
 
-  // Natural terrain line.
   const samples = 30;
   const from = -PAD;
   const to = span + PAD;
   const terrainPts = Array.from({ length: samples + 1 }, (_, i) => {
     const t = from + ((to - from) * i) / samples;
-    const rel = horizontal
-      ? elevationAt(terrain, building.setbackX + t, building.setbackY) - base
-      : elevationAt(terrain, cx, building.setbackY + t) - base;
-    return `${t.toFixed(2)} ${fy(rel).toFixed(2)}`;
+    let rel: number;
+    switch (kind) {
+      case 'front': rel = elevationAt(terrain, building.setbackX + t, building.setbackY); break;
+      case 'back': rel = elevationAt(terrain, building.setbackX + ground.footprint.width - t, building.setbackY + ground.footprint.depth); break;
+      case 'left': rel = elevationAt(terrain, building.setbackX, building.setbackY + t); break;
+      default: rel = elevationAt(terrain, kind === 'right' ? building.setbackX + ground.footprint.width : cx, building.setbackY + t);
+    }
+    return `${t.toFixed(2)} ${fy(rel - base).toFixed(2)}`;
   });
   g.append(s('path', { class: 'elev-ground', d: `M${terrainPts.join(' L')} L${to} ${height} L${from} ${height} Z` }));
 
   if (kind === 'section') {
-    const depth = ground.footprint.depth;
-    const up = upper?.footprint;
-    const upY0 = up ? up.y : 0;
-    const upY1 = up ? up.y + up.depth : depth;
-    g.append(
-      s('rect', { class: 'section-space', x: 0, y: fy(eave), width: depth, height: eave }),
-      s('rect', { class: 'section-cut', x: -0.25, y: fy(ground.height), width: 0.25, height: ground.height + SLAB }),
-      s('rect', { class: 'section-cut', x: depth, y: fy(ground.height), width: 0.25, height: ground.height + SLAB }),
-      s('rect', { class: 'section-cut', x: -0.25, y: fy(0), width: depth + 0.5, height: SLAB }),
-      s('rect', { class: 'section-cut', x: -0.25, y: fy(ground.height), width: depth + 0.5, height: SLAB }),
-    );
-    if (upper) {
+    const cutX = ground.footprint.width / 2;
+    building.floors.forEach((floor) => {
+      const { y, depth, x, width: w } = floor.footprint;
+      const localCut = cutX - x;
       g.append(
-        s('rect', { class: 'section-cut', x: upY0 - 0.25, y: fy(eave), width: 0.25, height: upper.height }),
-        s('rect', { class: 'section-cut', x: upY1, y: fy(eave), width: 0.25, height: upper.height }),
-        s('rect', { class: 'section-cut', x: upY0 - 0.25, y: fy(eave), width: upY1 - upY0 + 0.5, height: SLAB }),
+        s('rect', { class: 'section-space', x: y, y: fy(floor.level + floor.height), width: depth, height: floor.height }),
+        s('rect', { class: 'section-cut', x: y - WALL, y: fy(floor.level + floor.height), width: WALL, height: floor.height }),
+        s('rect', { class: 'section-cut', x: y + depth, y: fy(floor.level + floor.height), width: WALL, height: floor.height }),
+        s('rect', { class: 'section-cut', x: y - WALL, y: fy(floor.level), width: depth + WALL * 2, height: SLAB }),
       );
-    }
-    g.append(s('path', { class: 'section-roof', d: `M${upY0 - overhang} ${fy(eave)} L${(upY0 + upY1) / 2} ${fy(ridge)} L${upY1 + overhang} ${fy(eave)}` }));
-    // Interior partition cut at the living/study boundary.
-    const partition = ground.rooms.find((r) => r.y > 0)?.y;
-    if (partition !== undefined) g.append(s('rect', { class: 'section-cut', x: partition - 0.06, y: fy(ground.height), width: 0.12, height: ground.height }));
-    g.append(s('text', { class: 'plan-title', x: 0, y: height - 0.5 }, 'CORTE A-A'));
-  } else {
-    const floorX = (f: typeof ground) => (horizontal ? f.footprint.x : f.footprint.y);
-    const floorW = (f: typeof ground) => (horizontal ? f.footprint.width : f.footprint.depth);
-    building.floors.forEach((floor, i) => {
-      g.append(s('rect', { class: i === 0 ? 'elev-wall' : 'elev-wall upper', x: floorX(floor), y: fy(floor.level + floor.height), width: floorW(floor), height: floor.height }));
-      const openings = horizontal ? floor.openings.front : floor.openings.right;
-      g.append(...openingRects(openings, floor.level, fy, (o) => floorX(floor) + o.offset));
-      if (i > 0) g.append(s('rect', { class: 'elev-slab', x: floorX(floor) - 0.1, y: fy(floor.level) - 0.1, width: floorW(floor) + 0.2, height: 0.2 }));
+      const crossed = floor.rooms.filter((r) => localCut >= r.x && localCut <= r.x + r.width && localCut <= w).sort((a, b) => a.y - b.y);
+      crossed.forEach((room, i) => {
+        if (i > 0) g.append(s('rect', { class: 'section-cut', x: y + room.y - 0.06, y: fy(floor.level + floor.height), width: 0.12, height: floor.height }));
+        g.append(s('text', { class: room.depth < 2.2 ? 'room-label compact' : 'room-label', x: y + room.y + room.depth / 2, y: fy(floor.level + floor.height / 2), 'text-anchor': 'middle' }, room.name.toUpperCase()));
+      });
     });
-    const tx = floorX(top);
-    const tw = floorW(top);
-    g.append(horizontal
+    const { y: ty, depth: td } = top.footprint;
+    g.append(
+      s('rect', { class: 'section-cut', x: ty - WALL, y: fy(eave), width: td + WALL * 2, height: SLAB }),
+      s('path', { class: 'section-roof', d: `M${ty - overhang} ${fy(eave)} L${ty + td / 2} ${fy(ridge)} L${ty + td + overhang} ${fy(eave)}` }),
+      s('text', { class: 'dim-text', x: ty + td / 2, y: fy(ridge) - 0.3, 'text-anchor': 'middle' }, 'CUBIERTA'),
+      s('text', { class: 'dim-text', x: -PAD + 0.2, y: fy(-0.6) }, 'TERRENO'),
+    );
+  } else {
+    building.floors.forEach((floor, i) => {
+      const frame = facadeFrame(kind, floor, ground);
+      g.append(s('rect', { class: i === 0 ? 'elev-wall' : 'elev-wall upper', x: frame.start, y: fy(floor.level + floor.height), width: frame.span, height: floor.height }));
+      g.append(...openingRects(floor.openings[kind], floor.level, fy, frame.at));
+      if (i > 0) g.append(s('rect', { class: 'elev-slab', x: frame.start - 0.1, y: fy(floor.level) - 0.1, width: frame.span + 0.2, height: 0.2 }));
+    });
+    const { start: tx, span: tw } = facadeFrame(kind, top, ground);
+    g.append(alongWidth
       ? s('rect', { class: 'elev-roof', x: tx - overhang, y: fy(ridge), width: tw + overhang * 2, height: ridge - eave })
       : s('path', { class: 'elev-roof', d: `M${tx - overhang} ${fy(eave)} L${tx + tw / 2} ${fy(ridge)} L${tx + tw + overhang} ${fy(eave)} Z` }));
-    g.append(s('text', { class: 'plan-title', x: 0, y: height - 0.5 }, horizontal ? 'FACHADA PRINCIPAL' : 'FACHADA LATERAL DERECHA'));
   }
+  g.append(s('text', { class: 'plan-title', x: 0, y: height - 0.5 }, ELEVATION_TITLE[kind].toUpperCase()));
 
   const lx = span + 0.6;
   g.append(

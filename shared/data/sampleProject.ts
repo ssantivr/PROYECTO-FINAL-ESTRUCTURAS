@@ -1,21 +1,30 @@
 import type { Project } from '../types/project';
+import { materialCatalog } from './materialCatalog';
 
 export const sampleProject: Project = {
   id: 'prj-001',
   name: 'Casa Familiar Andina',
+  description: 'Vivienda unifamiliar de dos niveles para una familia de cinco personas, con garaje, terraza y lavandería.',
+  buildingType: 'house',
   city: 'Pasto',
   region: 'Nariño',
   style: 'Contemporáneo andino',
+  budget: 420_000_000,
   updatedAt: new Date().toISOString(),
   terrain: {
     width: 16,
     length: 24,
+    shape: 'rectangular',
     slopePercent: 8,
     elevation: 2527,
     orientation: 'N',
+    accessSide: 'front',
     latitude: 1.2136,
     longitude: -77.2811,
     soilType: 'Limo arenoso volcánico',
+    gardenArea: 110,
+    parkingArea: 30,
+    poolArea: 0,
     maxCos: 0.6,
     maxCus: 1.8,
     maxFloors: 3,
@@ -23,6 +32,21 @@ export const sampleProject: Project = {
   building: {
     setbackX: 1,
     setbackY: 5,
+    program: {
+      floors: 2,
+      bedrooms: 3,
+      bathrooms: 3,
+      kitchen: true,
+      livingRoom: true,
+      diningRoom: true,
+      garage: false,
+      terrace: false,
+      balcony: false,
+      garden: true,
+      pool: false,
+      laundry: true,
+      office: true,
+    },
     roof: { kind: 'gable', pitchDeg: 24, overhang: 0.6 },
     floors: [
       {
@@ -88,13 +112,6 @@ export const sampleProject: Project = {
       },
     ],
   },
-  materials: [
-    { id: 'concrete', name: 'Concreto 3000 PSI', category: 'Estructura', unit: 'm³', ratePerM2: 0.22, unitPrice: 520000 },
-    { id: 'rebar', name: 'Acero de refuerzo', category: 'Estructura', unit: 'kg', ratePerM2: 28, unitPrice: 4800 },
-    { id: 'brick', name: 'Ladrillo estructural', category: 'Mampostería', unit: 'und', ratePerM2: 55, unitPrice: 1250 },
-    { id: 'mortar', name: 'Mortero de pega', category: 'Mampostería', unit: 'm³', ratePerM2: 0.03, unitPrice: 410000 },
-    { id: 'tile', name: 'Porcelanato', category: 'Acabados', unit: 'm²', ratePerM2: 1.05, unitPrice: 62000 },
-    { id: 'roofTile', name: 'Teja termoacústica', category: 'Cubierta', unit: 'm²', ratePerM2: 0.62, unitPrice: 58000 },
-    { id: 'windows', name: 'Ventanería aluminio', category: 'Carpintería', unit: 'm²', ratePerM2: 0.14, unitPrice: 310000 },
-  ],
+  finishes: { walls: 'brick', roof: 'roofTile', floor: 'tile', frames: 'windows' },
+  materials: materialCatalog,
 };

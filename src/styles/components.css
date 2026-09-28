@@ -1,4 +1,3 @@
-/* ---------- Buttons & chips ---------- */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -82,7 +81,6 @@
 .seg:hover { color: var(--text); }
 .seg[aria-pressed='true'] { background: var(--panel-3); color: var(--text); }
 
-/* ---------- Panels ---------- */
 .panel {
   display: flex;
   flex-direction: column;
@@ -128,7 +126,6 @@
   color: var(--text-3);
 }
 
-/* ---------- 3D viewer ---------- */
 .viewer-stage { position: relative; flex: 1; min-height: 420px; }
 
 .viewer-canvas {
@@ -190,7 +187,6 @@
 
 input[type='range'] { accent-color: var(--accent); width: 120px; }
 
-/* ---------- Terrain info ---------- */
 .terrain-info { display: flex; flex-direction: column; gap: 14px; }
 
 .index-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -218,7 +214,7 @@ input[type='range'] { accent-color: var(--accent); width: 120px; }
 .meter-fill { display: block; height: 100%; border-radius: 2px; background: var(--accent); }
 
 .site-plan { width: 100%; max-height: 200px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm); }
-.site-lot { fill: rgba(63, 182, 139, 0.07); stroke: var(--accent-2); stroke-width: 0.08; stroke-dasharray: 0.4 0.2; }
+.site-lot { fill: rgba(57, 217, 138, 0.07); stroke: var(--accent-2); stroke-width: 0.08; stroke-dasharray: 0.4 0.2; }
 .site-street { stroke: var(--text-3); stroke-width: 0.9; stroke-opacity: 0.35; }
 .site-building { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 0.12; }
 .site-dim { stroke: var(--text-3); stroke-width: 0.05; stroke-dasharray: 0.2 0.15; }
@@ -230,7 +226,6 @@ input[type='range'] { accent-color: var(--accent); width: 120px; }
 .data-list dt { color: var(--text-3); }
 .data-list dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 
-/* ---------- Plans & elevations (shared drawing styles) ---------- */
 .plan-canvas,
 .elev-canvas {
   padding: 10px;
@@ -250,6 +245,7 @@ input[type='range'] { accent-color: var(--accent); width: 120px; }
 .room.is-hover { fill: #123049; }
 .room-label { fill: var(--text); font-size: 0.42px; font-weight: 600; pointer-events: none; }
 .room-label.compact { font-size: 0.28px; }
+.room-label.tiny { font-size: 0.2px; }
 .room-area { fill: var(--text-3); font-size: 0.32px; pointer-events: none; font-family: var(--mono); }
 .axis-line { stroke: var(--draw-axis); stroke-width: 0.03; stroke-dasharray: 0.3 0.15; }
 .axis-bubble { fill: var(--panel-2); stroke: var(--accent); stroke-width: 0.04; }
@@ -262,13 +258,13 @@ input[type='range'] { accent-color: var(--accent); width: 120px; }
 .arrow-head { fill: var(--draw-line); }
 .plan-title { fill: var(--text); font-size: 0.5px; font-weight: 700; letter-spacing: 0.04em; }
 
-.elev-ground { fill: rgba(63, 182, 139, 0.12); stroke: var(--ok); stroke-width: 0.05; }
+.elev-ground { fill: rgba(57, 217, 138, 0.12); stroke: var(--ok); stroke-width: 0.05; }
 .elev-wall { fill: #1b3246; stroke: var(--draw-wall); stroke-width: 0.05; }
 .elev-wall.upper { fill: #213b52; }
 .elev-slab { fill: var(--draw-line); }
 .elev-roof { fill: #3a2a2a; stroke: #c98f7e; stroke-width: 0.05; }
 .elev-window { fill: rgba(32, 199, 245, 0.18); stroke: var(--accent-2); stroke-width: 0.04; }
-.elev-door { fill: rgba(224, 168, 74, 0.2); stroke: var(--warn); stroke-width: 0.04; }
+.elev-door { fill: rgba(242, 201, 76, 0.2); stroke: var(--warn); stroke-width: 0.04; }
 .elev-mullion { stroke: var(--accent-2); stroke-width: 0.03; }
 .section-space { fill: rgba(21, 151, 229, 0.05); }
 .section-cut { fill: var(--draw-wall); }
@@ -277,7 +273,6 @@ input[type='range'] { accent-color: var(--accent); width: 120px; }
 
 .plan-readout { font-family: var(--mono); }
 
-/* ---------- Charts ---------- */
 .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .analysis-grid .chart:first-child { grid-column: 1 / -1; }
 
@@ -321,7 +316,6 @@ input[type='range'] { accent-color: var(--accent); width: 120px; }
 .sun-summary span { display: block; font-size: 11px; color: var(--text-3); }
 .sun-summary strong { font-family: var(--mono); font-size: 16px; }
 
-/* ---------- Forms ---------- */
 .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--text-2); }
 
@@ -345,7 +339,6 @@ input[type='range'] { accent-color: var(--accent); width: 120px; }
 .input-unit em { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-style: normal; font-size: 11px; color: var(--text-3); }
 .form-error { grid-column: 1 / -1; margin: 0; min-height: 1em; color: var(--bad); font-size: 12px; }
 
-/* ---------- KPI / tables ---------- */
 .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 14px; }
 .kpi { padding: 12px; border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--line); }
 .kpi span { display: block; font-size: 11px; color: var(--text-3); }
@@ -372,7 +365,6 @@ input[type='range'] { accent-color: var(--accent); width: 120px; }
 .gantt-bar { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; background: var(--accent); }
 .gantt-weeks { text-align: right; font-family: var(--mono); color: var(--text-3); }
 
-/* ---------- AI ---------- */
 .ai-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; }
 .reco-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .reco { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--line); }
@@ -401,7 +393,6 @@ input[type='range'] { accent-color: var(--accent); width: 120px; }
   .topbar-actions .btn { padding: 0 10px; }
 }
 
-/* ---------- Toasts ---------- */
 .toast-region { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 10; }
 .toast {
   padding: 10px 14px;

@@ -1,0 +1,24 @@
+# PostgreSQL para ARQUILA. LM Studio se ejecuta fuera de Docker, en el equipo local.
+# Si ya tiene PostgreSQL instalado en el puerto 5432, use: PG_PORT=5433 docker compose up -d
+# y ajuste DATABASE_URL en server/.env.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: arquila-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: arquila
+    ports:
+      - "${PG_PORT:-5432}:5432"
+    volumes:
+      - arquila-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d arquila"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  arquila-pgdata:

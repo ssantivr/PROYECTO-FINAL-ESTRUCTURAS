@@ -28,9 +28,7 @@ export function centroid(points: readonly Vec3[]): Vec3 {
 
 export interface OrbitCamera {
   target: Vec3;
-  /** Horizontal angle in radians. */
   yaw: number;
-  /** Vertical angle in radians (0 = horizon). */
   pitch: number;
   distance: number;
   fov: number;
@@ -51,7 +49,6 @@ export function cameraPosition(camera: OrbitCamera): Vec3 {
   );
 }
 
-/** Builds a projector that maps world points to canvas pixels. */
 export function createProjector(camera: OrbitCamera, width: number, height: number) {
   const eye = cameraPosition(camera);
   const forward = normalize(sub(camera.target, eye));
@@ -59,17 +56,37 @@ export function createProjector(camera: OrbitCamera, width: number, height: numb
   const up = cross(right, forward);
   const focal = Math.min(width, height) / 2 / Math.tan(camera.fov / 2);
 
+  const NEAR = 0.1;
+  const toScreen = (rel: Vec3, depth: number): ScreenPoint => ({
+    x: width / 2 + (dot(rel, right) * focal) / depth,
+    y: height / 2 - (dot(rel, up) * focal) / depth,
+    depth,
+  });
+
   return {
     eye,
     project(p: Vec3): ScreenPoint | null {
       const rel = sub(p, eye);
       const depth = dot(rel, forward);
-      if (depth < 0.1) return null;
-      return {
-        x: width / 2 + (dot(rel, right) * focal) / depth,
-        y: height / 2 - (dot(rel, up) * focal) / depth,
-        depth,
-      };
+      return depth < NEAR ? null : toScreen(rel, depth);
+    },
+    projectPolygon(points: readonly Vec3[]): ScreenPoint[] | null {
+      const rels = points.map((p) => sub(p, eye));
+      const depths = rels.map((r) => dot(r, forward));
+      const out: ScreenPoint[] = [];
+      for (let i = 0; i < rels.length; i++) {
+        const a = rels[i] as Vec3;
+        const b = rels[(i + 1) % rels.length] as Vec3;
+        const da = depths[i] as number;
+        const db = depths[(i + 1) % rels.length] as number;
+        if (da >= NEAR) out.push(toScreen(a, da));
+        if ((da >= NEAR) !== (db >= NEAR)) {
+          const t = (NEAR - da) / (db - da);
+          const cut = vec(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t);
+          out.push(toScreen(cut, NEAR));
+        }
+      }
+      return out.length >= 3 ? out : null;
     },
   };
 }

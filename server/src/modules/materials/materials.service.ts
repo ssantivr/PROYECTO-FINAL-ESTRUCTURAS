@@ -2,26 +2,34 @@ import { z } from 'zod';
 import type { Material as MaterialRecord, MaterialCategory as DbCategory } from '@prisma/client';
 import { prisma } from '../../db/prisma';
 import { notFound } from '../../http/errors';
-import type { Material } from '../../../../shared/types/project';
+import type { Material, MaterialCategory } from '../../../../shared/types/project';
 
-type Category = Material['category'];
-
-const TO_DB: Record<Category, DbCategory> = {
+const TO_DB: Record<MaterialCategory, DbCategory> = {
   Estructura: 'Estructura',
   'Mampostería': 'Mamposteria',
   Acabados: 'Acabados',
+  Fachada: 'Fachada',
   Cubierta: 'Cubierta',
+  Pisos: 'Pisos',
   'Carpintería': 'Carpinteria',
+  Aislamiento: 'Aislamiento',
 };
-const FROM_DB = Object.fromEntries(Object.entries(TO_DB).map(([k, v]) => [v, k])) as Record<DbCategory, Category>;
+const FROM_DB = Object.fromEntries(Object.entries(TO_DB).map(([k, v]) => [v, k])) as Record<DbCategory, MaterialCategory>;
+
+export const toDbCategory = (category: MaterialCategory): DbCategory => TO_DB[category];
 
 export const materialInputSchema = z.object({
   id: z.string().trim().min(1).max(40).regex(/^[A-Za-z0-9_-]+$/),
   name: z.string().trim().min(1).max(120),
-  category: z.enum(['Estructura', 'Mampostería', 'Acabados', 'Cubierta', 'Carpintería']),
+  category: z.enum(['Estructura', 'Mampostería', 'Acabados', 'Fachada', 'Cubierta', 'Pisos', 'Carpintería', 'Aislamiento']),
+  description: z.string().trim().max(500),
   unit: z.string().trim().min(1).max(12),
   ratePerM2: z.number().finite().min(0),
   unitPrice: z.number().finite().min(0),
+  slot: z.enum(['walls', 'roof', 'floor', 'frames']).nullable(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Color en formato #RRGGBB.'),
+  roughness: z.number().min(0).max(1),
+  metalness: z.number().min(0).max(1),
 }) satisfies z.ZodType<Material>;
 
 export const materialPatchSchema = materialInputSchema.omit({ id: true }).partial();
@@ -30,9 +38,14 @@ const toDto = (m: MaterialRecord): Material => ({
   id: m.key,
   name: m.name,
   category: FROM_DB[m.category],
+  description: m.description,
   unit: m.unit,
   ratePerM2: m.ratePerM2,
   unitPrice: m.unitPrice,
+  slot: m.slot,
+  color: m.color,
+  roughness: m.roughness,
+  metalness: m.metalness,
 });
 
 export const materialsService = {

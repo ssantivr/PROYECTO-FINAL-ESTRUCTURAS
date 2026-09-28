@@ -1,37 +1,43 @@
 import { prisma } from '../../db/prisma';
-import type { Terrain } from '../../../../shared/types/project';
-import { buildingCreateData, projectInclude, type ProjectRecord } from './projects.mapper';
+import type { Building, Finishes, Terrain } from '../../../../shared/types/project';
+import { buildingCreateData, finishesCreateData, projectInclude, type ProjectRecord } from './projects.mapper';
 import type { ProjectInput, ProjectPatch } from './projects.schemas';
 
-/** Data access for the project aggregate (Repository pattern). */
 export const projectsRepository = {
-  findAll(): Promise<ProjectRecord[]> {
-    return prisma.project.findMany({ include: projectInclude, orderBy: { updatedAt: 'desc' } });
+  findAll(ownerId: string): Promise<ProjectRecord[]> {
+    return prisma.project.findMany({ where: { ownerId }, include: projectInclude, orderBy: { updatedAt: 'desc' } });
   },
 
-  findById(id: string): Promise<ProjectRecord | null> {
-    return prisma.project.findUnique({ where: { id }, include: projectInclude });
+  findById(ownerId: string, id: string): Promise<ProjectRecord | null> {
+    return prisma.project.findFirst({ where: { id, ownerId }, include: projectInclude });
   },
 
-  create(input: ProjectInput): Promise<ProjectRecord> {
-    const { terrain, building, ...fields } = input;
+  create(ownerId: string, input: ProjectInput): Promise<ProjectRecord> {
+    const { terrain, building, finishes, ...fields } = input;
     return prisma.project.create({
-      data: { ...fields, terrain: { create: terrain }, building: { create: buildingCreateData(building) } },
+      data: {
+        ...fields,
+        owner: { connect: { id: ownerId } },
+        terrain: { create: terrain },
+        building: { create: buildingCreateData(building) },
+        finishes: { create: finishesCreateData(finishes) },
+      },
       include: projectInclude,
     });
   },
 
-  /** Replaces the whole aggregate atomically: the building tree is rebuilt from the payload. */
   replace(id: string, input: ProjectInput): Promise<ProjectRecord> {
-    const { terrain, building, ...fields } = input;
+    const { terrain, building, finishes, ...fields } = input;
     return prisma.$transaction(async (tx) => {
       await tx.building.deleteMany({ where: { projectId: id } });
+      await tx.projectMaterial.deleteMany({ where: { projectId: id } });
       return tx.project.update({
         where: { id },
         data: {
           ...fields,
           terrain: { upsert: { create: terrain, update: terrain } },
           building: { create: buildingCreateData(building) },
+          finishes: { create: finishesCreateData(finishes) },
         },
         include: projectInclude,
       });
@@ -47,6 +53,28 @@ export const projectsRepository = {
       where: { id },
       data: { terrain: { upsert: { create: terrain, update: terrain } } },
       include: projectInclude,
+    });
+  },
+
+  replaceBuilding(id: string, building: Building): Promise<ProjectRecord> {
+    return prisma.$transaction(async (tx) => {
+      await tx.building.deleteMany({ where: { projectId: id } });
+      return tx.project.update({
+        where: { id },
+        data: { building: { create: buildingCreateData(building) } },
+        include: projectInclude,
+      });
+    });
+  },
+
+  replaceFinishes(id: string, finishes: Finishes): Promise<ProjectRecord> {
+    return prisma.$transaction(async (tx) => {
+      await tx.projectMaterial.deleteMany({ where: { projectId: id } });
+      return tx.project.update({
+        where: { id },
+        data: { finishes: { create: finishesCreateData(finishes) } },
+        include: projectInclude,
+      });
     });
   },
 
