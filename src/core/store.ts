@@ -1,6 +1,5 @@
 export type Listener<T> = (state: T, previous: T) => void;
 
-/** Minimal observable store (Observer pattern) with immutable updates. */
 export class Store<T extends object> {
   private state: T;
   private readonly listeners = new Set<Listener<T>>();
@@ -25,7 +24,6 @@ export class Store<T extends object> {
     return () => this.listeners.delete(listener);
   }
 
-  /** Subscribe only to changes of a derived slice. */
   select<S>(selector: (state: T) => S, listener: (slice: S) => void): () => void {
     return this.subscribe((state, previous) => {
       const next = selector(state);

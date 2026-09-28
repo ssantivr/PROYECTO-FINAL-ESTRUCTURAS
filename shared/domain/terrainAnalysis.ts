@@ -2,7 +2,6 @@ import type { Terrain } from '../types/project';
 
 const DEG = Math.PI / 180;
 
-/** Relative elevation (m) at lot coordinates. x: across width, z: along length from the street. */
 export function elevationAt(terrain: Terrain, x: number, z: number): number {
   const base = (terrain.slopePercent / 100) * z;
   const undulation = 0.18 * Math.sin(x * 0.55 + 0.4) * Math.cos(z * 0.32) + 0.08 * Math.sin(z * 0.9);
@@ -27,7 +26,6 @@ export interface SlopeBucket {
   share: number;
 }
 
-/** Share of the lot surface in each slope class, sampled on a 0.5 m grid. */
 export function slopeDistribution(terrain: Terrain): SlopeBucket[] {
   const classes = [
     { label: '0–3 %', max: 3 },
@@ -61,7 +59,6 @@ function declination(dayOfYear: number): number {
   return 23.44 * Math.sin((360 / 365) * (dayOfYear - 81) * DEG);
 }
 
-/** Solar altitude and azimuth (degrees, azimuth clockwise from north) at local solar time. */
 export function sunPosition(latitude: number, dayOfYear: number, solarHour: number): SunPosition {
   const decl = declination(dayOfYear) * DEG;
   const lat = latitude * DEG;
@@ -82,7 +79,6 @@ export function dayLength(latitude: number, dayOfYear: number): number {
 
 export const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'] as const;
 
-/** Estimated clear-sky fraction for the Andean highlands of Nariño (bimodal rainy season). */
 const CLEAR_SKY_FRACTION = [0.34, 0.33, 0.3, 0.27, 0.3, 0.36, 0.42, 0.44, 0.38, 0.3, 0.27, 0.31] as const;
 
 export interface MonthlySun {

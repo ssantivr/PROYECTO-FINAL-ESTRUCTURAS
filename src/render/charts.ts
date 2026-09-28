@@ -38,7 +38,6 @@ function placeTooltip(tooltip: HTMLElement, svg: SVGSVGElement, x: number, y: nu
   tooltip.style.transform = `translate(${left}px, ${Math.max(0, y * k - tooltip.offsetHeight - 10)}px)`;
 }
 
-/** Single-series area/line chart with crosshair tooltip. */
 export function lineChart(data: readonly Datum[], opts: { caption: string; unit: string; format: (v: number) => string }): HTMLElement {
   const { width, height, pad } = WIDE_FRAME;
   const values = data.map((d) => d.value);
@@ -95,7 +94,6 @@ export function lineChart(data: readonly Datum[], opts: { caption: string; unit:
   return wrapper(svg, tooltip, opts.caption);
 }
 
-/** Single-series column chart; optional highlighted index and click selection. */
 export function columnChart(
   data: readonly Datum[],
   opts: { caption: string; unit: string; format: (v: number) => string; highlight?: number; onSelect?: (index: number) => void; directLabels?: boolean },

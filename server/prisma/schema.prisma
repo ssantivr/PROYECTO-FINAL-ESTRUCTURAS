@@ -34,21 +34,83 @@ enum MaterialCategory {
   Estructura
   Mamposteria @map("Mampostería")
   Acabados
+  Fachada
   Cubierta
+  Pisos
   Carpinteria @map("Carpintería")
+  Aislamiento
+}
+
+enum BuildingType {
+  house
+  residential
+  office
+  retail
+  warehouse
+  hotel
+  other
+}
+
+enum LotShape {
+  rectangular
+  corner
+  trapezoidal
+  irregular
+}
+
+enum FinishSlot {
+  walls
+  roof
+  floor
+  frames
+}
+
+enum FloorPlanKind {
+  floor
+  site
+  elevation
+  section
+}
+
+enum AIRequestKind {
+  chat
+  terrain_analysis
+  material_recommendation
+  layout
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique @db.VarChar(160)
+  name         String      @db.VarChar(120)
+  passwordHash String      @map("password_hash")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  projects     Project[]
+  aiRequests   AIRequest[]
+
+  @@map("users")
 }
 
 model Project {
-  id        String    @id @default(cuid())
-  name      String    @db.VarChar(120)
-  city      String    @db.VarChar(80)
-  region    String    @db.VarChar(80)
-  style     String    @db.VarChar(80)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  terrain   Terrain?
-  building  Building?
+  id           String            @id @default(cuid())
+  ownerId      String?           @map("owner_id")
+  name         String            @db.VarChar(120)
+  description  String            @default("")
+  buildingType BuildingType      @default(house) @map("building_type")
+  city         String            @db.VarChar(80)
+  region       String            @db.VarChar(80)
+  style        String            @db.VarChar(80)
+  budget       Float             @default(0)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  owner        User?             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  terrain      Terrain?
+  building     Building?
+  finishes     ProjectMaterial[]
+  floorPlans   FloorPlan[]
+  aiRequests   AIRequest[]
 
+  @@index([ownerId, updatedAt])
   @@map("projects")
 }
 
@@ -57,12 +119,17 @@ model Terrain {
   projectId    String      @unique @map("project_id")
   width        Float
   length       Float
+  shape        LotShape    @default(rectangular)
   slopePercent Float       @map("slope_percent")
   elevation    Float
   orientation  Orientation
+  accessSide   FacadeSide  @default(front) @map("access_side")
   latitude     Float
   longitude    Float
   soilType     String      @map("soil_type") @db.VarChar(120)
+  gardenArea   Float       @default(0) @map("garden_area")
+  parkingArea  Float       @default(0) @map("parking_area")
+  poolArea     Float       @default(0) @map("pool_area")
   maxCos       Float       @map("max_cos")
   maxCus       Float       @map("max_cus")
   maxFloors    Int         @map("max_floors")
@@ -72,34 +139,47 @@ model Terrain {
 }
 
 model Building {
-  id           String  @id @default(cuid())
-  projectId    String  @unique @map("project_id")
-  setbackX     Float   @map("setback_x")
-  setbackY     Float   @map("setback_y")
-  roofKind     String  @default("gable") @map("roof_kind") @db.VarChar(20)
-  roofPitchDeg Float   @map("roof_pitch_deg")
-  roofOverhang Float   @map("roof_overhang")
-  project      Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  floors       Floor[]
+  id            String  @id @default(cuid())
+  projectId     String  @unique @map("project_id")
+  setbackX      Float   @map("setback_x")
+  setbackY      Float   @map("setback_y")
+  roofKind      String  @default("gable") @map("roof_kind") @db.VarChar(20)
+  roofPitchDeg  Float   @map("roof_pitch_deg")
+  roofOverhang  Float   @map("roof_overhang")
+  programFloors Int     @default(1) @map("program_floors")
+  bedrooms      Int     @default(0)
+  bathrooms     Int     @default(1)
+  kitchen       Boolean @default(true)
+  livingRoom    Boolean @default(true) @map("living_room")
+  diningRoom    Boolean @default(true) @map("dining_room")
+  garage        Boolean @default(false)
+  terrace       Boolean @default(false)
+  balcony       Boolean @default(false)
+  garden        Boolean @default(false)
+  pool          Boolean @default(false)
+  laundry       Boolean @default(false)
+  office        Boolean @default(false)
+  project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  floors        Floor[]
 
   @@map("buildings")
 }
 
 model Floor {
-  id              String    @id @default(cuid())
-  buildingId      String    @map("building_id")
-  key             String    @db.VarChar(40)
-  name            String    @db.VarChar(80)
-  position        Int
-  level           Float
-  height          Float
-  footprintX      Float     @map("footprint_x")
-  footprintY      Float     @map("footprint_y")
-  footprintWidth  Float     @map("footprint_width")
-  footprintDepth  Float     @map("footprint_depth")
-  building        Building  @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  rooms           Room[]
-  openings        Opening[]
+  id             String    @id @default(cuid())
+  buildingId     String    @map("building_id")
+  key            String    @db.VarChar(40)
+  name           String    @db.VarChar(80)
+  position       Int
+  level          Float
+  height         Float
+  footprintX     Float     @map("footprint_x")
+  footprintY     Float     @map("footprint_y")
+  footprintWidth Float     @map("footprint_width")
+  footprintDepth Float     @map("footprint_depth")
+  building       Building  @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  rooms          Room[]
+  openings       Opening[]
 
   @@unique([buildingId, key])
   @@index([buildingId, position])
@@ -138,17 +218,76 @@ model Opening {
   @@map("openings")
 }
 
-/// Global catalog; quantities are derived per project from ratePerM2 × built area.
 model Material {
-  id        String           @id @default(cuid())
-  key       String           @unique @db.VarChar(40)
-  name      String           @db.VarChar(120)
-  category  MaterialCategory
-  unit      String           @db.VarChar(12)
-  ratePerM2 Float            @map("rate_per_m2")
-  unitPrice Float            @map("unit_price")
-  createdAt DateTime         @default(now()) @map("created_at")
-  updatedAt DateTime         @updatedAt @map("updated_at")
+  id          String            @id @default(cuid())
+  key         String            @unique @db.VarChar(40)
+  name        String            @db.VarChar(120)
+  category    MaterialCategory
+  description String            @default("")
+  unit        String            @db.VarChar(12)
+  ratePerM2   Float             @map("rate_per_m2")
+  unitPrice   Float             @map("unit_price")
+  slot        FinishSlot?
+  color       String            @default("#999999") @db.VarChar(7)
+  roughness   Float             @default(0.8)
+  metalness   Float             @default(0)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  usedBy      ProjectMaterial[]
 
   @@map("materials")
+}
+
+model ProjectMaterial {
+  projectId  String     @map("project_id")
+  slot       FinishSlot
+  materialId String     @map("material_id")
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  material   Material   @relation(fields: [materialId], references: [id], onDelete: Restrict)
+
+  @@id([projectId, slot])
+  @@map("project_materials")
+}
+
+model FloorPlan {
+  id        String        @id @default(cuid())
+  projectId String        @map("project_id")
+  kind      FloorPlanKind
+  floorKey  String?       @map("floor_key") @db.VarChar(40)
+  name      String        @db.VarChar(120)
+  data      Json
+  createdAt DateTime      @default(now()) @map("created_at")
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("floor_plans")
+}
+
+model AIRequest {
+  id         String        @id @default(cuid())
+  userId     String?       @map("user_id")
+  projectId  String?       @map("project_id")
+  kind       AIRequestKind
+  input      Json
+  createdAt  DateTime      @default(now()) @map("created_at")
+  user       User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project    Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  generation AIGeneration?
+
+  @@index([projectId, createdAt])
+  @@map("ai_requests")
+}
+
+model AIGeneration {
+  id             String    @id @default(cuid())
+  requestId      String    @unique @map("request_id")
+  source         String    @db.VarChar(20)
+  model          String?   @db.VarChar(160)
+  output         Json
+  fallbackReason String?   @map("fallback_reason")
+  durationMs     Int       @map("duration_ms")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  request        AIRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("ai_generations")
 }

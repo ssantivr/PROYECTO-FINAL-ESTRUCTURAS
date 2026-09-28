@@ -1,4 +1,3 @@
-/** Base class for UI components: owns a root element and its subscriptions. */
 export abstract class Component<E extends HTMLElement = HTMLElement> {
   readonly el: E;
   private readonly disposers: Array<() => void> = [];

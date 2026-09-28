@@ -1,65 +1,93 @@
 import { Component } from '../core/component';
 import { h, icon, type IconName } from '../core/dom';
-import type { AppStore } from '../core/appState';
-import { buildScene, type Face, type Scene } from '../render/sceneBuilder';
+import type { AppStore } from '../state/appState';
+import { buildScene, type Face, type LayerId, type Scene } from '../render/sceneBuilder';
 import { centroid, createProjector, dot, normalize, sub, vec, type OrbitCamera, type Vec3 } from '../render/math3d';
 import { dayOfYearFromMonth, MONTHS, sunPosition } from '../services/terrainAnalysis';
 
-type Preset = 'iso' | 'front' | 'side' | 'top';
+type Preset = 'iso' | 'front' | 'side' | 'top' | 'interior';
 
-const PRESETS: Record<Preset, Pick<OrbitCamera, 'yaw' | 'pitch'>> = {
-  iso: { yaw: -2.45, pitch: 0.55 },
-  front: { yaw: Math.PI, pitch: 0.08 },
-  side: { yaw: -Math.PI / 2, pitch: 0.08 },
-  top: { yaw: Math.PI, pitch: 1.5 },
+const PRESETS: Record<Preset, { label: string; yaw: number; pitch: number }> = {
+  iso: { label: 'Isométrica', yaw: -2.45, pitch: 0.55 },
+  front: { label: 'Frontal', yaw: Math.PI, pitch: 0.08 },
+  side: { label: 'Lateral', yaw: -Math.PI / 2, pitch: 0.08 },
+  top: { label: 'Superior', yaw: Math.PI, pitch: 1.5 },
+  interior: { label: 'Interior', yaw: 0, pitch: 0.02 },
 };
+
+type LayerToggle = LayerId | 'construction';
+
+const LAYERS: ReadonlyArray<[LayerToggle, string]> = [
+  ['terrain', 'Terreno'],
+  ['construction', 'Construcción'],
+  ['walls', 'Paredes'],
+  ['roof', 'Techo'],
+  ['doors', 'Puertas'],
+  ['windows', 'Ventanas'],
+  ['furniture', 'Mobiliario'],
+  ['vegetation', 'Vegetación'],
+];
+
+const BUILDING_LAYERS: ReadonlySet<LayerId> = new Set(['walls', 'roof', 'doors', 'windows', 'furniture']);
 
 export class Viewer3D extends Component {
   private readonly canvas = h('canvas', { class: 'viewer-canvas', 'aria-label': 'Visualización 3D del proyecto' });
   private readonly ctx: CanvasRenderingContext2D;
   private readonly status = h('span', { class: 'viewer-status' });
   private camera: OrbitCamera = { target: vec(0, 0, 0), yaw: PRESETS.iso.yaw, pitch: PRESETS.iso.pitch, distance: 40, fov: 0.9 };
+  private preset: Preset = 'iso';
   private scene: Scene;
-  private options = { showTerrain: true, wireframe: false };
+  private layers = new Set<LayerToggle>(LAYERS.map(([id]) => id));
+  private wireframe = false;
   private frame = 0;
+  private readonly presetButtons = new Map<Preset, HTMLButtonElement>();
 
   constructor(private readonly store: AppStore) {
     super(h('section', { class: 'panel viewer', 'data-area': 'viewer' }));
     const ctx = this.canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2D no disponible');
     this.ctx = ctx;
-    this.scene = buildScene(store.get().project, this.options);
+    this.scene = buildScene(store.get().project);
     this.resetCamera();
 
+    const presets = h('div', { class: 'segmented' });
+    for (const p of Object.keys(PRESETS) as Preset[]) {
+      const btn = h('button', { class: 'seg', type: 'button', onclick: () => this.applyPreset(p) }, PRESETS[p].label);
+      this.presetButtons.set(p, btn);
+      presets.append(btn);
+    }
+
     this.el.append(
-      h('header', { class: 'panel-head' },
-        h('h2', {}, 'Visualizador 3D'),
-        h('div', { class: 'segmented' }, ...(['iso', 'front', 'side', 'top'] as const).map((p) =>
-          h('button', { class: 'seg', type: 'button', onclick: () => this.applyPreset(p) }, { iso: 'Isométrica', front: 'Frontal', side: 'Lateral', top: 'Planta' }[p]))),
-      ),
+      h('header', { class: 'panel-head' }, h('h2', {}, 'Visualización principal'), h('span', { class: 'badge' }, 'Render 3D'), presets),
       h('div', { class: 'viewer-stage' },
         this.canvas,
         h('div', { class: 'viewer-toolbar' },
           this.tool('zoomIn', 'Acercar', () => this.zoom(0.85)),
           this.tool('zoomOut', 'Alejar', () => this.zoom(1.18)),
           this.tool('rotate', 'Restablecer vista', () => this.resetCamera()),
-          this.toggle('terrain', 'Mostrar terreno', true, (on) => this.setOption('showTerrain', on)),
-          this.toggle('grid', 'Modo alámbrico', false, (on) => this.setOption('wireframe', on)),
+          this.tool('expand', 'Pantalla completa', () => this.fullscreen()),
+          this.toggle('grid', 'Modo alámbrico', false, (on) => {
+            this.wireframe = on;
+            this.requestDraw();
+          }),
         ),
-        h('div', { class: 'viewer-hint' }, 'Arrastrar: orbitar · Shift + arrastrar: desplazar · Rueda: zoom'),
+        h('div', { class: 'viewer-hint' }, 'Arrastrar: rotar · Shift o botón derecho: desplazar · Rueda: zoom'),
         this.status,
       ),
+      h('div', { class: 'layer-bar', role: 'group', 'aria-label': 'Capas' }, ...LAYERS.map(([id, label]) => this.layerToggle(id, label))),
       this.sunControls(),
     );
+    this.highlightPreset();
 
     this.bindPointer();
     const resize = new ResizeObserver(() => this.requestDraw());
     resize.observe(this.canvas);
     this.track(() => resize.disconnect());
     this.track(store.select((s) => s.project, (project) => {
-      this.scene = buildScene(project, this.options);
+      this.scene = buildScene(project);
       this.requestDraw();
     }));
+    this.track(store.select((s) => s.project.id, () => this.resetCamera()));
     this.track(store.subscribe((s, prev) => {
       if (s.sunMonth !== prev.sunMonth || s.sunHour !== prev.sunHour) this.requestDraw();
     }));
@@ -77,6 +105,22 @@ export class Viewer3D extends Component {
     });
     btn.setAttribute('aria-pressed', String(initial));
     return btn;
+  }
+
+  private layerToggle(id: LayerToggle, label: string): HTMLLabelElement {
+    const input = h('input', { type: 'checkbox', checked: true });
+    input.addEventListener('change', () => {
+      if (input.checked) this.layers.add(id);
+      else this.layers.delete(id);
+      this.requestDraw();
+    });
+    return h('label', { class: 'layer-toggle' }, input, h('span', {}, label));
+  }
+
+  private isVisible(face: Face): boolean {
+    const layer = face.layer === 'site' ? 'terrain' : face.layer;
+    if (!this.layers.has(layer)) return false;
+    return !BUILDING_LAYERS.has(face.layer) || this.layers.has('construction');
   }
 
   private sunControls(): HTMLElement {
@@ -101,24 +145,35 @@ export class Viewer3D extends Component {
     );
   }
 
-  private setOption<K extends keyof Viewer3D['options']>(key: K, value: boolean): void {
-    this.options = { ...this.options, [key]: value };
-    if (key === 'showTerrain') this.scene = buildScene(this.store.get().project, this.options);
-    this.requestDraw();
+  private fullscreen(): void {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void this.el.requestFullscreen().catch(() => undefined);
+  }
+
+  private highlightPreset(): void {
+    this.presetButtons.forEach((btn, key) => btn.setAttribute('aria-pressed', String(key === this.preset)));
   }
 
   private resetCamera(): void {
-    this.camera = { ...this.camera, ...PRESETS.iso, target: this.scene.center, distance: this.scene.radius * 2.6 };
+    this.preset = 'iso';
+    this.camera = { ...this.camera, yaw: PRESETS.iso.yaw, pitch: PRESETS.iso.pitch, target: this.scene.center, distance: this.scene.radius * 2.6 };
+    this.highlightPreset();
     this.requestDraw();
   }
 
   private applyPreset(preset: Preset): void {
-    this.camera = { ...this.camera, ...PRESETS[preset], target: this.scene.center };
+    this.preset = preset;
+    const { yaw, pitch } = PRESETS[preset];
+    this.camera = preset === 'interior'
+      ? { ...this.camera, yaw, pitch, target: this.scene.interior, distance: 0.3 }
+      : { ...this.camera, yaw, pitch, target: this.scene.center, distance: Math.max(this.camera.distance, this.scene.radius * 1.6) };
+    this.highlightPreset();
     this.requestDraw();
   }
 
   private zoom(factor: number): void {
-    const distance = Math.min(this.scene.radius * 8, Math.max(6, this.camera.distance * factor));
+    const min = this.preset === 'interior' ? 0.2 : 6;
+    const distance = Math.min(this.scene.radius * 8, Math.max(min, this.camera.distance * factor));
     this.camera = { ...this.camera, distance };
     this.requestDraw();
   }
@@ -135,7 +190,8 @@ export class Viewer3D extends Component {
       const dy = e.clientY - last.y;
       if (last.pan) this.pan(dx, dy);
       else {
-        const pitch = Math.min(1.55, Math.max(0.02, this.camera.pitch + dy * 0.006));
+        const minPitch = this.preset === 'interior' ? -0.6 : 0.02;
+        const pitch = Math.min(1.55, Math.max(minPitch, this.camera.pitch + dy * 0.006));
         this.camera = { ...this.camera, yaw: this.camera.yaw - dx * 0.008, pitch };
       }
       last = { ...last, x: e.clientX, y: e.clientY };
@@ -153,7 +209,7 @@ export class Viewer3D extends Component {
 
   private pan(dx: number, dy: number): void {
     const { yaw, distance, target } = this.camera;
-    const k = distance * 0.0016;
+    const k = Math.max(distance, 4) * 0.0016;
     const right = vec(Math.cos(yaw), 0, -Math.sin(yaw));
     this.camera = {
       ...this.camera,
@@ -171,7 +227,6 @@ export class Viewer3D extends Component {
     const sun = sunPosition(project.terrain.latitude, dayOfYearFromMonth(sunMonth), sunHour);
     const alt = (Math.max(sun.altitude, 2) * Math.PI) / 180;
     const az = (sun.azimuth * Math.PI) / 180;
-    // World: -z faces the street (north for orientation "N"), +x east.
     return { dir: normalize(vec(Math.sin(az) * Math.cos(alt), Math.sin(alt), -Math.cos(az) * Math.cos(alt))), altitude: sun.altitude };
   }
 
@@ -193,24 +248,23 @@ export class Viewer3D extends Component {
 
     const projector = createProjector(this.camera, w, hgt);
     const { dir: sun, altitude } = this.sunDirection();
+    const interior = this.preset === 'interior';
+    const cull = !this.wireframe && !interior;
     const visible: Array<{ face: Face; depth: number; pts: Array<{ x: number; y: number }> }> = [];
 
     for (const face of this.scene.faces) {
+      if (!this.isVisible(face)) continue;
       const c = centroid(face.points);
-      let normal = face.normal;
-      if (face.layer === 'terrain') {
-        if (normal.y < 0) normal = vec(-normal.x, -normal.y, -normal.z);
-      } else if (dot(normal, sub(c, this.scene.buildingCenter)) < 0) {
-        normal = vec(-normal.x, -normal.y, -normal.z);
-      }
-      if (!this.options.wireframe && dot(normal, sub(projector.eye, c)) <= 0) continue;
-      const pts = face.points.map((p) => projector.project(p));
-      if (pts.some((p) => p === null)) continue;
+      if (interior && (face.layer === 'roof' || c.y > this.scene.interiorTop || (face.layer !== 'terrain' && Math.abs(face.normal.y) > 0.9))) continue;
+      const normal = dot(face.normal, sub(c, face.center)) < 0 ? vec(-face.normal.x, -face.normal.y, -face.normal.z) : face.normal;
+      if (cull && dot(normal, sub(projector.eye, c)) <= 0) continue;
+      const pts = projector.projectPolygon(face.points);
+      if (!pts) continue;
       const depth = Math.hypot(...Object.values(sub(c, projector.eye))) - (face.overlay ? 0.6 : 0);
-      visible.push({ face: { ...face, normal }, depth, pts: pts as Array<{ x: number; y: number }> });
+      visible.push({ face: { ...face, normal }, depth, pts });
     }
 
-    const layerOrder = (f: Face) => (f.layer === 'terrain' ? 0 : 1);
+    const layerOrder = (f: Face) => (f.layer === 'terrain' ? 0 : f.layer === 'site' ? 1 : 2);
     visible.sort((a, b) => layerOrder(a.face) - layerOrder(b.face) || b.depth - a.depth);
 
     const daylight = altitude > 0 ? 1 : 0.35;
@@ -218,14 +272,17 @@ export class Viewer3D extends Component {
       ctx.beginPath();
       pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
       ctx.closePath();
-      if (this.options.wireframe) {
+      if (this.wireframe) {
         ctx.strokeStyle = face.layer === 'terrain' ? 'rgba(32,199,245,0.18)' : 'rgba(32,199,245,0.8)';
         ctx.lineWidth = 1;
         ctx.stroke();
         continue;
       }
-      const light = (0.42 + 0.58 * Math.max(0, dot(face.normal, sun))) * daylight;
-      const [r, g, b] = face.color.map((ch) => Math.round(Math.min(255, ch * light + 12)));
+      const diffuse = (0.42 + 0.58 * Math.max(0, dot(face.normal, sun))) * daylight;
+      const view = normalize(sub(projector.eye, centroid(face.points)));
+      const half = normalize(vec(sun.x + view.x, sun.y + view.y, sun.z + view.z));
+      const specular = face.shine * Math.max(0, dot(face.normal, half)) ** 24 * 150 * daylight;
+      const [r, g, b] = face.color.map((ch) => Math.round(Math.min(255, ch * diffuse + 12 + specular)));
       ctx.fillStyle = `rgb(${r},${g},${b})`;
       ctx.fill();
       ctx.strokeStyle = face.layer === 'terrain' ? 'rgba(7,17,26,0.25)' : 'rgba(7,17,26,0.55)';
@@ -234,13 +291,13 @@ export class Viewer3D extends Component {
     }
 
     this.drawNorth(ctx, w, hgt, projector);
-    this.status.textContent = `Sol ${altitude.toFixed(0)}° · Zoom ${(100 * (this.scene.radius * 2.6) / this.camera.distance).toFixed(0)} %`;
+    const zoom = this.preset === 'interior' ? 'Vista interior' : `Zoom ${(100 * (this.scene.radius * 2.6) / this.camera.distance).toFixed(0)} %`;
+    this.status.textContent = `Sol ${altitude.toFixed(0)}° · ${zoom}`;
   }
 
   private drawNorth(ctx: CanvasRenderingContext2D, w: number, hgt: number, projector: ReturnType<typeof createProjector>): void {
     const cx = w - 34;
     const cy = hgt - 40;
-    // Screen direction of world -z (north), measured from the projected target.
     const t = this.camera.target;
     const a = projector.project(t);
     const b = projector.project(vec(t.x, t.y, t.z - 5));

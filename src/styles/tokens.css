@@ -1,19 +1,24 @@
 :root {
   --bg: #07111a;
+  --bg-2: #0b1722;
   --panel: #0f1d2a;
   --panel-2: #122536;
   --panel-3: #16304a;
-  --line: #1c3246;
+  --line: #1a2f42;
   --line-strong: #27445e;
   --accent: #1597e5;
   --accent-2: #20c7f5;
-  --accent-soft: rgba(21, 151, 229, 0.14);
-  --text: #eaf2f8;
-  --text-2: #a9bccb;
-  --text-3: #6f8799;
-  --ok: #3fb68b;
-  --warn: #e0a84a;
-  --bad: #e5645a;
+  --accent-soft: rgba(21, 151, 229, 0.12);
+  --cyan-soft: rgba(32, 199, 245, 0.1);
+  --text: #f4f7fa;
+  --text-2: #8fa3b5;
+  --text-3: #647c90;
+  --ok: #39d98a;
+  --warn: #f2c94c;
+  --bad: #ff647c;
+  --ok-soft: rgba(57, 217, 138, 0.12);
+  --warn-soft: rgba(242, 201, 76, 0.12);
+  --bad-soft: rgba(255, 100, 124, 0.12);
 
   --radius: 10px;
   --radius-sm: 6px;
@@ -21,9 +26,8 @@
   --sidebar-w: 240px;
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 6px 18px rgba(0, 0, 0, 0.22);
 
-  /* Drawing tokens (plans / elevations) */
   --draw-wall: #c9d6e0;
   --draw-room: #0c1822;
   --draw-line: #7f97a9;

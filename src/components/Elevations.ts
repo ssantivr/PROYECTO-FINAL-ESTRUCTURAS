@@ -1,12 +1,14 @@
 import { Component } from '../core/component';
 import { h } from '../core/dom';
-import type { AppStore } from '../core/appState';
+import type { AppStore } from '../state/appState';
 import { drawElevation, type ElevationKind } from '../render/elevationDrawing';
 
 const KINDS: ReadonlyArray<[ElevationKind, string]> = [
-  ['front', 'Fachada principal'],
-  ['side', 'Fachada lateral'],
-  ['section', 'Corte A-A'],
+  ['front', 'Frontal'],
+  ['back', 'Posterior'],
+  ['left', 'Lateral izq.'],
+  ['right', 'Lateral der.'],
+  ['section', 'Corte'],
 ];
 
 export class Elevations extends Component {
@@ -22,7 +24,7 @@ export class Elevations extends Component {
       this.buttons.set(kind, btn);
       seg.append(btn);
     }
-    this.el.append(h('header', { class: 'panel-head' }, h('h2', {}, 'Vistas y elevaciones'), seg), this.canvas);
+    this.el.append(h('header', { class: 'panel-head' }, h('h2', {}, 'Elevaciones y cortes'), seg), this.canvas);
     this.setKind('front');
     this.track(store.select((st) => st.project, () => this.render()));
   }
