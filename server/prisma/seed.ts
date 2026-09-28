@@ -1,33 +1,61 @@
 import { PrismaClient } from '@prisma/client';
 import { sampleProject } from '../../shared/data/sampleProject';
-import { buildingCreateData } from '../src/modules/projects/projects.mapper';
+import { materialCatalog } from '../../shared/data/materialCatalog';
+import { buildingCreateData, finishesCreateData } from '../src/modules/projects/projects.mapper';
+import { toDbCategory } from '../src/modules/materials/materials.service';
+import { hashPassword } from '../src/modules/auth/password';
 
 const prisma = new PrismaClient();
 
-const CATEGORY = {
-  Estructura: 'Estructura',
-  'Mampostería': 'Mamposteria',
-  Acabados: 'Acabados',
-  Cubierta: 'Cubierta',
-  'Carpintería': 'Carpinteria',
-} as const;
+export const DEMO_USER = { email: 'demo@arquila.co', name: 'Usuario Demo', password: 'arquila2026' };
 
 async function main(): Promise<void> {
-  for (const { id, category, ...material } of sampleProject.materials) {
-    const data = { ...material, category: CATEGORY[category] };
+  for (const { id, category, ...material } of materialCatalog) {
+    const data = { ...material, category: toDbCategory(category) };
     await prisma.material.upsert({ where: { key: id }, create: { ...data, key: id }, update: data });
   }
+  console.log(`Catálogo: ${materialCatalog.length} materiales.`);
 
-  const { terrain, building, name, city, region, style } = sampleProject;
-  const existing = await prisma.project.findFirst({ where: { name } });
+  const user = await prisma.user.upsert({
+    where: { email: DEMO_USER.email },
+    create: { email: DEMO_USER.email, name: DEMO_USER.name, passwordHash: await hashPassword(DEMO_USER.password) },
+    update: {},
+  });
+  console.log(`Usuario demo: ${DEMO_USER.email} / ${DEMO_USER.password}`);
+
+  const adopted = await prisma.project.updateMany({ where: { ownerId: null }, data: { ownerId: user.id } });
+  if (adopted.count) console.log(`${adopted.count} proyecto(s) sin dueño asignados al usuario demo.`);
+
+  const { terrain, building, finishes, name, description, buildingType, city, region, style, budget } = sampleProject;
+  const existing = await prisma.project.findFirst({ where: { name, ownerId: user.id }, include: { finishes: true } });
   if (existing) {
-    console.log(`Proyecto de ejemplo ya existe (${existing.id}).`);
+    await prisma.project.update({
+      where: { id: existing.id },
+      data: {
+        description, buildingType, budget,
+        terrain: { update: terrain },
+        building: { update: { programFloors: building.program.floors, ...withoutFloors(building.program) } },
+        ...(existing.finishes.length ? {} : { finishes: { create: finishesCreateData(finishes) } }),
+      },
+    });
+    console.log(`Proyecto demo actualizado (${existing.id}).`);
     return;
   }
   const project = await prisma.project.create({
-    data: { id: sampleProject.id, name, city, region, style, terrain: { create: terrain }, building: { create: buildingCreateData(building) } },
+    data: {
+      id: sampleProject.id,
+      name, description, buildingType, city, region, style, budget,
+      owner: { connect: { id: user.id } },
+      terrain: { create: terrain },
+      building: { create: buildingCreateData(building) },
+      finishes: { create: finishesCreateData(finishes) },
+    },
   });
-  console.log(`Proyecto de ejemplo creado: ${project.id}`);
+  console.log(`Proyecto demo creado: ${project.name} (${project.id}).`);
+}
+
+function withoutFloors({ floors: _floors, ...rest }: typeof sampleProject.building.program) {
+  return rest;
 }
 
 main()

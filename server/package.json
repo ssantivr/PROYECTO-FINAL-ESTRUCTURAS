@@ -4,6 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
     "dev": "tsx watch src/index.ts",
     "build": "tsc && esbuild src/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/index.js",
     "start": "node dist/index.js",
@@ -11,7 +13,8 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test": "tsx --test \"src/tests/*.test.ts\""
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -21,11 +24,15 @@
     "cors": "^2.8.6",
     "dotenv": "^18.0.4",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.3",
     "esbuild": "^0.28.2",
     "prisma": "^6.19.3",

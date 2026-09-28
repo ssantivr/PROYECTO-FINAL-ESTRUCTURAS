@@ -1,18 +1,22 @@
-import type { Project } from '../../../../shared/types/project';
+import type { Building, BuildingType, Finishes, Project, Terrain } from '../../../../shared/types/project';
+import { FINISH_SLOTS } from '../../../../shared/types/project';
 import { computeMetrics } from '../../../../shared/domain/metrics';
+import { FINISH_SLOT_LABEL } from '../../../../shared/i18n/es';
 import { HttpError, notFound } from '../../http/errors';
 import { materialsService } from '../materials/materials.service';
-import { toProjectDto } from './projects.mapper';
+import { toProjectDto, type ProjectRecord } from './projects.mapper';
 import { projectsRepository } from './projects.repository';
 import type { ProjectInput, ProjectPatch } from './projects.schemas';
 
 export interface ProjectSummary {
   id: string;
   name: string;
+  buildingType: BuildingType;
   city: string;
   region: string;
   style: string;
   floors: number;
+  rooms: number;
   builtArea: number;
   lotArea: number;
   updatedAt: string;
@@ -20,9 +24,7 @@ export interface ProjectSummary {
 
 const EPS = 1e-6;
 
-/** Geometric consistency rules that a schema alone cannot express. */
-function assertGeometry(input: ProjectInput): void {
-  const { terrain, building } = input;
+export function assertGeometry(terrain: Terrain, building: Building): void {
   const problems: string[] = [];
   const keys = new Set<string>();
 
@@ -57,26 +59,45 @@ function assertGeometry(input: ProjectInput): void {
   if (building.floors.length > terrain.maxFloors) {
     problems.push(`El proyecto tiene ${building.floors.length} pisos; la norma permite ${terrain.maxFloors}.`);
   }
+  const ground = building.floors[0];
+  const lotArea = terrain.width * terrain.length;
+  const footprint = ground ? ground.footprint.width * ground.footprint.depth : 0;
+  if (footprint + terrain.gardenArea + terrain.parkingArea + terrain.poolArea > lotArea + EPS) {
+    problems.push(`Construcción, jardín, estacionamiento y piscina suman más que el área del lote (${Math.round(lotArea)} m²).`);
+  }
   if (problems.length) throw new HttpError(422, 'El proyecto no es geométricamente válido.', problems);
 }
 
-async function withMaterials(record: Parameters<typeof toProjectDto>[0]): Promise<Project> {
+async function assertFinishes(finishes: Finishes): Promise<void> {
+  const catalog = new Map((await materialsService.list()).map((m) => [m.id, m]));
+  const problems = FINISH_SLOTS.flatMap((slot) => {
+    const material = catalog.get(finishes[slot]);
+    if (!material) return [`${FINISH_SLOT_LABEL[slot]}: el material "${finishes[slot]}" no existe en el catálogo.`];
+    if (material.slot !== slot) return [`${FINISH_SLOT_LABEL[slot]}: "${material.name}" no es un acabado para esta superficie.`];
+    return [];
+  });
+  if (problems.length) throw new HttpError(422, 'Selección de materiales inválida.', problems);
+}
+
+async function withMaterials(record: ProjectRecord): Promise<Project> {
   return toProjectDto(record, await materialsService.list());
 }
 
 export const projectsService = {
-  async list(): Promise<ProjectSummary[]> {
-    const records = await projectsRepository.findAll();
+  async list(ownerId: string): Promise<ProjectSummary[]> {
+    const records = await projectsRepository.findAll(ownerId);
     return records.map((record) => {
       const dto = toProjectDto(record, []);
       const metrics = computeMetrics(dto);
       return {
         id: dto.id,
         name: dto.name,
+        buildingType: dto.buildingType,
         city: dto.city,
         region: dto.region,
         style: dto.style,
         floors: dto.building.floors.length,
+        rooms: dto.building.floors.reduce((sum, f) => sum + f.rooms.length, 0),
         builtArea: metrics.builtArea,
         lotArea: metrics.lotArea,
         updatedAt: dto.updatedAt,
@@ -84,34 +105,50 @@ export const projectsService = {
     });
   },
 
-  async get(id: string): Promise<Project> {
-    const record = await projectsRepository.findById(id);
+  async get(ownerId: string, id: string): Promise<Project> {
+    const record = await projectsRepository.findById(ownerId, id);
     if (!record) throw notFound('Proyecto');
     return withMaterials(record);
   },
 
-  async create(input: ProjectInput): Promise<Project> {
-    assertGeometry(input);
-    return withMaterials(await projectsRepository.create(input));
+  async create(ownerId: string, input: ProjectInput): Promise<Project> {
+    assertGeometry(input.terrain, input.building);
+    await assertFinishes(input.finishes);
+    return withMaterials(await projectsRepository.create(ownerId, input));
   },
 
-  async replace(id: string, input: ProjectInput): Promise<Project> {
-    assertGeometry(input);
-    if (!(await projectsRepository.findById(id))) throw notFound('Proyecto');
+  async replace(ownerId: string, id: string, input: ProjectInput): Promise<Project> {
+    await this.get(ownerId, id);
+    assertGeometry(input.terrain, input.building);
+    await assertFinishes(input.finishes);
     return withMaterials(await projectsRepository.replace(id, input));
   },
 
-  async patch(id: string, patch: ProjectPatch): Promise<Project> {
+  async patch(ownerId: string, id: string, patch: ProjectPatch): Promise<Project> {
+    await this.get(ownerId, id);
     return withMaterials(await projectsRepository.patch(id, patch));
   },
 
-  async updateTerrain(id: string, terrain: ProjectInput['terrain']): Promise<Project> {
-    const current = await this.get(id);
-    assertGeometry({ ...current, terrain });
+  async updateTerrain(ownerId: string, id: string, terrain: Terrain): Promise<Project> {
+    const current = await this.get(ownerId, id);
+    assertGeometry(terrain, current.building);
     return withMaterials(await projectsRepository.updateTerrain(id, terrain));
   },
 
-  remove(id: string): Promise<void> {
-    return projectsRepository.remove(id);
+  async updateBuilding(ownerId: string, id: string, building: Building): Promise<Project> {
+    const current = await this.get(ownerId, id);
+    assertGeometry(current.terrain, building);
+    return withMaterials(await projectsRepository.replaceBuilding(id, building));
+  },
+
+  async updateFinishes(ownerId: string, id: string, finishes: Finishes): Promise<Project> {
+    await this.get(ownerId, id);
+    await assertFinishes(finishes);
+    return withMaterials(await projectsRepository.replaceFinishes(id, finishes));
+  },
+
+  async remove(ownerId: string, id: string): Promise<void> {
+    await this.get(ownerId, id);
+    await projectsRepository.remove(id);
   },
 };
