@@ -95,28 +95,48 @@ Requiere el plugin JavaScript and TypeScript (incluido en Ultimate y WebStorm).
 
 El navegador **nunca** llama a LM Studio: el flujo es `Frontend → Backend → AIService → LMStudioService → LM Studio → modelo local`. El estado de la conexión aparece en el panel de IA y en el inicio. Detalles en [`docs/ai.md`](docs/ai.md).
 
+## Interfaz · Dark Architectural Pro
+
+La interfaz usa una paleta oscura de estilo arquitectónico definida como tokens en `src/styles/tokens.css`:
+
+| Token | Color | Uso |
+|---|---|---|
+| `--bg` / `--panel` | `#07111a` / `#0f1d2a` | Fondo y paneles |
+| `--accent` / `--accent-2` | `#1597e5` / `#20c7f5` | Acción principal y cian de indicadores |
+| `--text` / `--text-2` | `#f4f7fa` / `#8fa3b5` | Texto principal y secundario |
+| `--ok` / `--warn` / `--bad` | `#39d98a` / `#f2c94c` / `#ff647c` | Estados |
+
+- **Barra lateral**: Inicio, Proyectos, Nuevo Proyecto, Terrenos, Materiales, Visualización 3D, IA Asistente y Configuración.
+- **Encabezado**: nombre del proyecto con su estado (Borrador 15 %, En desarrollo 45 %, En revisión 75 %, Aprobado 100 %) y botón **Exportar Planos**.
+- **Pestañas del proyecto** con indicador cian: Vista 3D, Planos, Terreno, Construcción, Materiales, IA.
+- **Tablero principal** en CSS Grid: visualización 3D, información del terreno, tarjetas de planta baja/alta, análisis del terreno y elevaciones.
+
 ## Qué se puede hacer (flujo principal)
 
-1. **Proyectos**: crear (nombre, descripción, tipo, ubicación, presupuesto, estilo), listar, abrir, editar y eliminar; todo en PostgreSQL y por usuario.
+1. **Proyectos**: crear (nombre, descripción, tipo, ubicación, presupuesto, estilo), listar, abrir, editar y eliminar; todo en PostgreSQL y por usuario. **Nuevo Proyecto** ofrece plantillas (Casa Familiar Andina, Vivienda compacta, Edificio multifamiliar, Oficina profesional).
 2. **Terreno**: ancho, largo, área calculada (ancho × largo), forma, pendiente, elevación, orientación, acceso, coordenadas, suelo, áreas de jardín/estacionamiento/piscina, COS/CUS y pisos máximos, con validaciones.
-3. **Análisis del terreno**: resumen, mapa topográfico por curvas de nivel, perfil, pendientes, insolación y **“Analizar terreno”** con IA (recomendaciones estructuradas y marcadas como preliminares).
+3. **Análisis del terreno**: visor de terreno por capas activables (elevación, pendientes por rangos 0–3 % … > 12 %, curvas de nivel, retícula de 2 m, retiros, zonas exteriores, huella construida y trayectoria solar), resumen, mapa topográfico por curvas de nivel, perfil, pendientes, insolación y **“Analizar terreno”** con IA (recomendaciones estructuradas y marcadas como preliminares).
 4. **Construcción**: programa (habitaciones, baños, pisos, cocina, sala, comedor, garaje, terraza, balcón, jardín, piscina, lavandería, oficina) y **“Generar distribución”** (IA → lista estructurada de espacios → generador procedural).
 5. **Planos**: planta baja, planta alta, implantación, 4 fachadas y corte esquemático, con muros, puertas, ventanas, mobiliario básico, ejes y cotas. Se regeneran al cambiar los datos. “Generar planos” guarda el juego de planos en la base; “Descargar plano” (SVG) y “Exportar PDF” (hoja con datos del proyecto, fecha y nota de propuesta preliminar).
 6. **Materiales**: catálogo con color, rugosidad y metalicidad; al elegir un acabado cambian el **modelo 3D** y el presupuesto. “Recomendar con IA” sugiere acabados del catálogo.
 7. **Visor 3D**: terreno procedural con pendiente, edificación por pisos con muros, tabiques, losas, cubierta a dos aguas, puertas, ventanas, mobiliario, vegetación, piscina y estacionamiento; rotar, zoom, desplazar; vistas isométrica, frontal, lateral, superior e interior; capas activables; sol según mes y hora.
-8. **Asistente de IA**: chat en español con el proyecto actual como contexto.
-9. **Guardar** (Ctrl + S) y recuperar el proyecto más tarde.
+8. **Asistente de IA**: chat en español con el proyecto actual como contexto. El proveedor se elige en Configuración: *Automático* (servidor con LM Studio y reglas como respaldo), *Servidor ARQUILA*, *Motor de reglas local* o *API externa* compatible con OpenAI (endpoint, modelo y clave configurables).
+9. **Configuración**: estado del proyecto, mostrar ejes y cotas, autoguardado y proveedor de IA. Se guarda en el navegador (`localStorage`).
+10. **Guardar** (Ctrl + S) y recuperar el proyecto más tarde.
 
 ## Estructura
 
 ```
 arquila/
 ├── src/                  Frontend (TypeScript + Vite)
-│   ├── components/       Paneles de la interfaz (dashboard, terreno, construcción, planos, materiales, IA, visor 3D…)
+│   ├── components/       Paneles de la interfaz (dashboard, nuevo proyecto, terreno por capas, tarjetas de planos y elevaciones, materiales, IA, configuración, visor 3D…)
 │   ├── core/             Store observable, componente base, utilidades DOM
-│   ├── render/           Dibujo: escena 3D, proyección, planos, elevaciones, implantación, topografía, gráficos
-│   ├── services/         Cliente API (JWT), sincronización, fachada de IA, exportación PDF
-│   ├── styles/           Tokens, layout y estilos por módulo
+│   ├── data/             Datos de la interfaz: navegación, plantillas, estados del proyecto, capas del terreno, proveedores de IA
+│   ├── render/           Dibujo: escena 3D, proyección, planos, elevaciones, implantación, topografía, capas del terreno, gráficos
+│   ├── services/         Cliente API (JWT), sincronización, IA (ai/AIService con proveedores), configuración local, exportación PDF
+│   ├── state/            Estado global de la aplicación y selectores
+│   ├── styles/           Tokens (Dark Architectural Pro), layout y estilos por módulo
+│   ├── types/            Tipos de la interfaz (navegación, ajustes, proveedores de IA)
 │   └── main.ts           Arranque: conexión, sesión, carga del proyecto
 ├── server/               Backend (Express + Prisma)
 │   ├── prisma/           schema.prisma, migraciones, seed.ts
@@ -128,6 +148,8 @@ arquila/
 ├── shared/               Tipos, dominio (métricas, terreno, generador de distribución, reglas IA), catálogo, textos en español
 ├── docs/                 architecture.md · api.md · ai.md
 ├── scripts/dev.mjs       Arranque conjunto de API y frontend
+├── .run/                 Configuraciones de ejecución y depuración para IntelliJ IDEA / WebStorm
+├── .vscode/              Tareas, depuración y extensiones recomendadas para VS Code
 ├── docker-compose.yml    PostgreSQL
 └── .env.example          Plantilla de variables (copiar a server/.env)
 ```
@@ -138,6 +160,26 @@ arquila/
 - [API REST](docs/api.md)
 - [Integración de IA con LM Studio](docs/ai.md)
 
-## Alcance de esta etapa (≈ 40 %)
+## Historial de cambios
 
-Implementado: proyectos, autenticación, terreno 2D/3D, análisis, programa y distribución, planos preliminares, materiales ↔ 3D, IA con LM Studio y respaldo por reglas, exportación básica. Pendiente para etapas siguientes: render fotorrealista, BIM/IFC/DWG, cálculo estructural y geotécnico, presupuestos detallados, multiusuario con roles, despliegue.
+### ARQUILA 45 % — UI, módulos y backend
+
+- Paleta **Dark Architectural Pro** en `tokens.css`; barra lateral con 8 secciones, encabezado con estado del proyecto y **Exportar Planos**, pestañas con indicador cian.
+- Tablero en grid: visor 3D, información del terreno, tarjetas de planos (`PlanCards`), análisis y elevaciones (`ElevationCards`).
+- Nuevos paneles: `NewProjectPanel` (plantillas), `ProjectsPanel`, `TerrainForm`, `TerrainViewer` por capas, `TerrainInsights`, `ProgramPanel`, `SettingsPanel`, `AuthScreen`.
+- `AIService` del frontend con proveedores intercambiables (servidor, reglas, API externa) y modo automático con respaldo.
+- Reorganización del frontend: estado en `src/state`, datos en `src/data`, tipos de UI en `src/types`.
+- Render: implantación (`sitePlan`), topografía, capas del terreno, escena 3D ampliada (tabiques, puertas, ventanas, mobiliario, vegetación, piscina, estacionamiento).
+- Backend: autenticación JWT, módulo de IA con LM Studio (análisis de terreno, sugerencia de distribución, recomendación de materiales), módulo de planos, rate limiting, nuevas migraciones de Prisma y seed con usuario demo.
+- Código compartido: generador de distribución, motor de reglas de IA, catálogo de materiales y textos en español.
+- Documentación en `docs/` (arquitectura, API, IA), `docker-compose.yml` y pruebas de autenticación, IA y distribución.
+
+### Configuración de IDE
+
+- `.run/` con configuraciones para IntelliJ IDEA / WebStorm (dev, web, API, depuración, build, tests, seed).
+- `.vscode/` con tareas, depuración de API y web en Chrome y extensiones recomendadas.
+- `.gitignore` ignora `.idea/`.
+
+## Alcance de esta etapa (≈ 45 %)
+
+Implementado: proyectos con plantillas, autenticación, interfaz Dark Architectural Pro, terreno 2D/3D por capas, análisis, programa y distribución, planos preliminares, materiales ↔ 3D, IA con LM Studio, reglas o API externa, configuración local, exportación básica. Pendiente para etapas siguientes: render fotorrealista, BIM/IFC/DWG, cálculo estructural y geotécnico, presupuestos detallados, multiusuario con roles, despliegue.
