@@ -1,6 +1,6 @@
 import { Component } from '../core/component';
 import { formatNumber, h } from '../core/dom';
-import type { AppStore } from '../core/appState';
+import type { AppStore } from '../state/appState';
 import { constructionSchedule } from '../services/materials';
 import { computeMetrics, floorArea } from '../services/metrics';
 import { kpi } from './MaterialsPanel';

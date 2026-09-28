@@ -1,4 +1,4 @@
-import type { Material, Project } from '../types/project';
+import type { FinishSlot, Material, Project } from '../types/project';
 import { computeMetrics } from './metrics';
 
 export interface MaterialEstimate {
@@ -7,9 +7,17 @@ export interface MaterialEstimate {
   cost: number;
 }
 
+export function activeMaterials(project: Project): Material[] {
+  return project.materials.filter((m) => m.slot === null || project.finishes[m.slot] === m.id);
+}
+
+export function selectedFinish(project: Project, slot: FinishSlot): Material | undefined {
+  return project.materials.find((m) => m.id === project.finishes[slot]);
+}
+
 export function estimateMaterials(project: Project): MaterialEstimate[] {
   const { builtArea } = computeMetrics(project);
-  return project.materials.map((material) => {
+  return activeMaterials(project).map((material) => {
     const quantity = material.ratePerM2 * builtArea;
     return { material, quantity, cost: quantity * material.unitPrice };
   });
@@ -25,7 +33,6 @@ export interface ConstructionPhase {
   share: number;
 }
 
-/** Phase durations scale with built area (baseline: 200 m² ≈ 32 weeks). */
 export function constructionSchedule(project: Project): ConstructionPhase[] {
   const { builtArea } = computeMetrics(project);
   const factor = builtArea / 200;

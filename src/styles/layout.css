@@ -30,7 +30,6 @@ select {
   outline-offset: 2px;
 }
 
-/* ---------- Shell ---------- */
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
@@ -44,13 +43,12 @@ select {
   min-height: 0;
 }
 
-/* ---------- Sidebar ---------- */
 .sidebar {
   display: flex;
   flex-direction: column;
   gap: 18px;
   padding: 18px 12px;
-  background: var(--panel);
+  background: var(--bg-2);
   border-right: 1px solid var(--line);
   overflow-y: auto;
 }
@@ -115,7 +113,7 @@ select {
 .side-link[aria-current='page'] {
   background: var(--accent-soft);
   color: var(--text);
-  box-shadow: inset 2px 0 0 var(--accent);
+  box-shadow: inset 2px 0 0 var(--accent-2);
 }
 
 .side-link[aria-current='page'] svg {
@@ -139,7 +137,6 @@ select {
   color: var(--text-3);
 }
 
-/* ---------- Top bar ---------- */
 .topbar {
   display: flex;
   align-items: center;
@@ -175,8 +172,8 @@ select {
   gap: 10px;
 }
 
-/* ---------- Tabs ---------- */
 .tabbar {
+  position: relative;
   display: flex;
   gap: 4px;
   padding: 0 22px;
@@ -200,10 +197,20 @@ select {
 
 .tab[aria-selected='true'] {
   color: var(--text);
-  border-bottom-color: var(--accent);
 }
 
-/* ---------- Workspace grid ---------- */
+.tab-indicator {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 1px;
+  height: 2px;
+  background: var(--accent-2);
+  transform-origin: left center;
+  transition: transform 0.22s ease;
+  pointer-events: none;
+}
+
 .workspace {
   display: grid;
   gap: var(--gap);
@@ -211,68 +218,42 @@ select {
   overflow: auto;
   min-height: 0;
   align-content: start;
+  align-items: start;
 }
 
-.workspace[data-view='overview'] {
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-template-areas:
-    'viewer viewer viewer viewer viewer viewer viewer viewer info info info info'
-    'plans plans plans plans plans plans plans analysis analysis analysis analysis analysis'
-    'elev elev elev elev elev elev elev analysis analysis analysis analysis analysis';
+[data-slot='a'] { grid-area: a; }
+[data-slot='b'] { grid-area: b; }
+[data-slot='c'] { grid-area: c; }
+[data-slot='d'] { grid-area: d; }
+[data-slot='e'] { grid-area: e; }
+[data-slot='f'] { grid-area: f; }
+
+.workspace[data-layout='2'] { grid-template-columns: minmax(0, 1fr) 340px; grid-template-areas: 'a b'; }
+.workspace[data-layout='3'] { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) 340px; grid-template-areas: 'a b c'; }
+.workspace[data-layout='4'] { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) 340px; grid-template-areas: 'a b d' 'a c d'; }
+.workspace[data-view='plans'] { grid-template-columns: minmax(0, 1fr) 340px; grid-template-areas: 'a c' 'b c'; }
+.workspace[data-view='construction'] { grid-template-columns: minmax(0, 1fr) 340px; grid-template-areas: 'a c' 'b c'; }
+.workspace[data-layout='overview'] {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 360px;
+  grid-template-areas: 'a a b' 'c c d' 'e e e' 'f f f';
 }
+.workspace[data-view='terrain'] { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) 340px; }
+.workspace[data-view='newProject'],
+.workspace[data-view='settings'] { grid-template-columns: minmax(0, 1fr) 340px; grid-template-areas: 'a b'; }
 
-.workspace[data-view='viewer'] {
-  grid-template-columns: minmax(0, 1fr) 340px;
-  grid-template-areas: 'viewer info';
-}
-
-.workspace[data-view='project'],
-.workspace[data-view='terrain'],
-.workspace[data-view='ai'] {
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 340px;
-  grid-template-areas: 'main viewer info';
-}
-
-.workspace[data-view='plans'],
-.workspace[data-view='construction'] {
-  grid-template-columns: minmax(0, 1fr) 340px;
-  grid-template-areas: 'main info' 'elev info';
-}
-
-.workspace[data-view='materials'] {
-  grid-template-columns: minmax(0, 1fr) 340px;
-  grid-template-areas: 'main info';
-}
-
-[data-area='viewer'] { grid-area: viewer; }
-[data-area='info'] { grid-area: info; }
-[data-area='elevations'] { grid-area: elev; }
-[data-area='editor'],
-[data-area='construction'],
-[data-area='materials'],
-[data-area='ai'] { grid-area: main; }
-.workspace[data-view='overview'] [data-area='plans'] { grid-area: plans; }
-.workspace[data-view='overview'] [data-area='analysis'] { grid-area: analysis; }
-.workspace:not([data-view='overview']) [data-area='plans'],
-.workspace:not([data-view='overview']) [data-area='analysis'] { grid-area: main; }
-
-.workspace[data-view='overview'] .viewer-stage { min-height: 460px; }
-.workspace[data-view='viewer'] .viewer-stage { min-height: max(440px, calc(100vh - 290px)); }
-.workspace[data-view='project'] [data-area='viewer'],
-.workspace[data-view='terrain'] [data-area='viewer'],
-.workspace[data-view='ai'] [data-area='viewer'] { align-self: start; }
+.workspace[data-view='overview'] .viewer-stage { min-height: 440px; }
+.workspace[data-view='viewer'] .viewer-stage { min-height: max(440px, calc(100vh - 330px)); }
+[data-slot='b'].viewer,
+[data-slot='c'].viewer { position: sticky; top: 0; }
 
 @media (max-width: 1280px) {
-  .workspace[data-view='overview'] {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas: 'viewer viewer' 'info analysis' 'plans plans' 'elev elev';
-  }
-  .workspace[data-view='project'],
-  .workspace[data-view='terrain'],
-  .workspace[data-view='ai'] {
-    grid-template-columns: minmax(0, 1fr) 320px;
-    grid-template-areas: 'main info' 'viewer info';
-  }
+  .workspace[data-layout='3'],
+  .workspace[data-layout='4'] { grid-template-columns: minmax(0, 1fr) 320px; grid-template-areas: 'a d' 'b d' 'c d'; }
+  .workspace[data-layout='3'] [data-slot='c'] { grid-area: d; }
+  .workspace[data-layout='overview'] { grid-template-columns: minmax(0, 1fr) 320px; grid-template-areas: 'a b' 'c d' 'e e' 'f f'; }
+  .workspace[data-view='terrain'] { grid-template-columns: minmax(0, 1fr) 320px; }
+  [data-slot='b'].viewer,
+  [data-slot='c'].viewer { position: static; }
 }
 
 @media (max-width: 900px) {
@@ -290,5 +271,6 @@ select {
     grid-template-areas: none;
   }
   .workspace[data-view] > [data-area] { grid-area: auto; }
+  .workspace[data-view] > [data-slot] { grid-area: auto; }
   .workspace[data-view] .viewer-stage { min-height: 340px; }
 }
