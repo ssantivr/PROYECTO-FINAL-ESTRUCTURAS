@@ -65,6 +65,24 @@ También puede crear una cuenta nueva desde la pantalla de acceso. Si el backend
 | `npm run db:deploy` | `prisma migrate deploy` (aplica migraciones existentes) |
 | `npm run db:seed` | Datos demo |
 
+## Ejecutar desde el IDE
+
+Abra la carpeta `arquila/` (no la carpeta padre) y ejecute `npm run setup` una vez.
+
+**IntelliJ IDEA / WebStorm** — las configuraciones de `.run/` aparecen solas en el selector de ejecución (arriba a la derecha):
+
+| Configuración | Qué hace |
+|---|---|
+| ARQUILA dev (API + web) | API en `:4000` y web en `:5173` |
+| ARQUILA web / ARQUILA API | Solo una de las dos partes |
+| ARQUILA depurar API | API con puntos de interrupción |
+| ARQUILA depurar web (Chrome) | Depura el frontend; requiere la web en marcha |
+| ARQUILA build / tests / datos de ejemplo (seed) | Compilación, pruebas y datos demo |
+
+Requiere el plugin JavaScript and TypeScript (incluido en Ultimate y WebStorm).
+
+**Visual Studio Code** — `Ctrl+Shift+B` ejecuta la tarea por defecto *ARQUILA: dev (API + web)*. En *Ejecutar y depurar* (`Ctrl+Shift+D`) están *API (depurar)*, *Web en Chrome* y *ARQUILA completo (API + web)*. Las demás tareas están en *Terminal → Ejecutar tarea*.
+
 ## LM Studio
 
 1. Instale LM Studio desde https://lmstudio.ai.

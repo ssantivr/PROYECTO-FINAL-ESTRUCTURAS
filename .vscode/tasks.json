@@ -1,0 +1,38 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "ARQUILA: dev (API + web)",
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "arquila",
+        "pattern": { "regexp": "^x^" },
+        "background": {
+          "activesBegin": true,
+          "beginsPattern": "arquila@",
+          "endsPattern": "ARQUILA API escuchando"
+        }
+      },
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "ARQUILA: web",
+      "type": "npm",
+      "script": "dev:web",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "arquila-web",
+        "pattern": { "regexp": "^x^" },
+        "background": { "activesBegin": true, "beginsPattern": "vite", "endsPattern": "Local:" }
+      }
+    },
+    { "label": "ARQUILA: build", "type": "npm", "script": "build", "problemMatcher": ["$tsc"], "group": "build" },
+    { "label": "ARQUILA: typecheck", "type": "npm", "script": "typecheck", "problemMatcher": ["$tsc"] },
+    { "label": "ARQUILA: tests", "type": "npm", "script": "test", "problemMatcher": [], "group": "test" },
+    { "label": "ARQUILA: migrar base de datos", "type": "npm", "script": "db:deploy", "problemMatcher": [] },
+    { "label": "ARQUILA: datos de ejemplo (seed)", "type": "npm", "script": "db:seed", "problemMatcher": [] }
+  ]
+}
